@@ -54,6 +54,12 @@ class Decompteur:
         })
         print("Ballot received, box now has", len(self._ballot_box), "ballots")
 
+    def receive_and_count(self, ballots: list[tuple[int, int]], decode_vote_fn=None) -> dict:
+     for enc, sig in ballots:
+        self.receive_vote(enc, sig)
+     return self.decrypt_and_count(decode_vote_fn)
+
+
     def decrypt_and_count(self, decode_vote_fn=None):
         # This runs after the voting session closes
         # We go through every ballot and do 4 checks before counting it
