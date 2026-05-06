@@ -24,7 +24,7 @@ _SHORT_DIGEST_BYTES: int = 4
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  1. TTH Hash  (thin wrapper — keeps a single import point for the rest of the
+#  1. TTH Hash  (thin wrapper  keeps a single import point for the rest of the
 #               project; all callers import from encoding, not tth_hash directly)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -87,31 +87,40 @@ def format_code(code: str, group_size: int = _FORMAT_GROUP_SIZE) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def encode_message(msg: str, rsa_modulus: int = None) -> int:
-   
     if not isinstance(msg, str):
         raise TypeError(f"msg must be a str, got {type(msg).__name__!r}.")
     if not msg:
         raise ValueError("msg must not be empty.")
     if rsa_modulus is not None:
         if not isinstance(rsa_modulus, int):
-            raise TypeError(
-                f"rsa_modulus must be an int, got {type(rsa_modulus).__name__!r}."
-            )
+            raise TypeError(f"rsa_modulus must be an int, got {type(rsa_modulus).__name__!r}.")
         if rsa_modulus < 2:
             raise ValueError(f"rsa_modulus must be ≥ 2, got {rsa_modulus}.")
 
-    digest_bytes = hashlib.sha256(msg.encode("utf-8")).digest()
-    digest_int   = int.from_bytes(digest_bytes, "big")             
+    # hash
+    m_hash = hashlib.sha256(msg.encode("utf-8")).digest()        # 32 bytes
 
-    if rsa_modulus is not None:
-        result = digest_int % rsa_modulus
-        if result == 0:
-            result = 1
-        return result
+    if rsa_modulus is None:
+        return int.from_bytes(m_hash, "big")
 
-    return digest_int
+    #  MGF1 seed
+    mgf_seed = hashlib.sha256(m_hash + b"\x00").digest()         # 32 bytes
 
+    # Data Block  =  hash || mgf_seed || 0xBC
+    db = m_hash + mgf_seed + b"\xbc"                             # 65 bytes
 
+    # Step 4 : ajuster à la taille du modulus
+    em_len = (rsa_modulus.bit_length() + 7) // 8
+    if len(db) < em_len:
+        padded = b"\x00" * (em_len - len(db)) + db
+    else:
+        padded = db[-em_len:]
+
+    # entier dans [1, N-1] sans biais
+    padded_int = int.from_bytes(padded, "big")
+    result = (padded_int % (rsa_modulus - 1)) + 1
+
+    return result
 # ═══════════════════════════════════════════════════════════════════════════════
 #  5. Vote Encoding  (vote + N2 → RSA-safe integer)
 # ═══════════════════════════════════════════════════════════════════════════════
