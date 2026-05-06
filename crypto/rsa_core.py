@@ -1,4 +1,6 @@
-import random
+import secrets
+
+_rng = secrets.SystemRandom()
 
 def is_prime(n, rounds=20):
     if n < 2:
@@ -14,7 +16,7 @@ def is_prime(n, rounds=20):
         d //= 2
 
     for _ in range(rounds):
-        a = random.randrange(2, n - 1)
+        a = _rng.randrange(2, n - 1)
         x = pow(a, d, n)
         if x == 1 or x == n - 1:
             continue
@@ -29,7 +31,7 @@ def is_prime(n, rounds=20):
 
 def generate_prime(bits=1024):
     while True:
-        candidate = random.getrandbits(bits)
+        candidate = _rng.getrandbits(bits)
         candidate |= (1 << bits - 1) | 1
         if is_prime(candidate):
             return candidate
