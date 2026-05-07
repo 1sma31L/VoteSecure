@@ -120,7 +120,7 @@ export default function Dashboard() {
             </span>
           </div>
           <p className="text-sm text-slate-400 mb-4">
-            Remettez chaque carte à son électeur. <span className="text-neon-cyan font-semibold">N1</span> pour s'identifier, <span className="text-neon-orange font-semibold">N2</span> pour signer.
+            Les codes <span className="text-neon-cyan font-semibold">N1</span> et <span className="text-neon-orange font-semibold">N2</span> sont envoyés par email à chaque électeur. N1 reste visible ici pour vérification.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {cards.map((card) => {
@@ -132,7 +132,15 @@ export default function Dashboard() {
                     <div className="w-7 h-7 bg-neon-blue/10 rounded-full flex items-center justify-center text-[0.65rem] font-extrabold text-neon-blue">
                       {initials}
                     </div>
-                    <span className="font-display font-extrabold text-sm text-white">{card.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-display font-extrabold text-sm text-white block truncate">{card.name}</span>
+                      <span className="text-[0.6rem] text-slate-500 font-mono truncate block">{card.email}</span>
+                    </div>
+                    {card.email_sent ? (
+                      <span className="text-[0.55rem] font-bold text-neon-green bg-neon-green/10 border border-neon-green/20 rounded-full px-2 py-0.5 shrink-0">✓ Email</span>
+                    ) : (
+                      <span className="text-[0.55rem] font-bold text-neon-orange bg-neon-orange/10 border border-neon-orange/20 rounded-full px-2 py-0.5 shrink-0">✗ Email</span>
+                    )}
                   </div>
                   <div className="mb-2">
                     <div className="flex items-center justify-between">
@@ -140,13 +148,6 @@ export default function Dashboard() {
                       <CopyBtn value={card.N1_fmt} label="N1" />
                     </div>
                     <div className="font-mono text-sm font-semibold text-white tracking-widest">{card.N1_fmt}</div>
-                  </div>
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-[0.55rem] font-bold text-neon-orange/60 uppercase tracking-widest">N2 — Signature</div>
-                      <CopyBtn value={card.N2_fmt} label="N2" />
-                    </div>
-                    <div className="font-mono text-sm font-semibold text-white tracking-widest">{card.N2_fmt}</div>
                   </div>
                   <div>
                     <div className="text-[0.55rem] font-bold text-slate-500 uppercase tracking-widest">TTH(N2)</div>

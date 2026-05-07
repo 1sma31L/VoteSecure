@@ -6,7 +6,6 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage 
 from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -40,127 +39,83 @@ def log(msg):
     STATE["audit"].append({"time": datetime.now().strftime("%H:%M:%S"), "msg": msg})
     print(f"[COMMISSIONER] {msg}")
 def send_voter_credentials(to_email: str, voter_name: str, n1_fmt: str, n2_fmt: str, title: str):
-    """Send N1 and N2 codes to the voter by email with an inline image."""
-    
+    """Send N1 and N2 codes to the voter by email (plain, no images)."""
 
-    msg = MIMEMultipart("related")
+    msg = MIMEMultipart("alternative")
     msg["Subject"] = f"Vos codes de vote — {title}"
     msg["From"]    = EMAIL_SENDER
     msg["To"]      = to_email
 
-   
+    # Plain-text version
+    text_body = f"""Hello {voter_name},
+
+You are registered for the election: {title}
+
+Your voting credentials:
+
+N1 (Identification): {n1_fmt}
+N2 (Anonymity):      {n2_fmt}
+
+IMPORTANT:
+- Do not share these codes with anyone.
+- N1 is required to access the voting system.
+- N2 ensures the anonymity of your ballot.
+
+Secure. Transparent. Trustworthy."""
+
+    # Simple HTML version — no images, no nested tables, minimal styling
     html_body = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-    </head>
-    <body style="margin:0; padding:0; background:#f3f6fb; font-family:Arial, sans-serif;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding:24px 12px;">
-        <tr>
-          <td align="center">
-            <table role="presentation" width="760" cellspacing="0" cellpadding="0" border="0"
-                   style="width:760px; max-width:760px; background:#ffffff; border-radius:22px; overflow:hidden; box-shadow:0 10px 30px rgba(15, 23, 42, 0.12);">
-              
-              <!-- IMAGE D'EN-TÊTE APPELÉE DEPUIS LE FICHIER JOINT -->
-              <tr>
-                <td style="background:#071a3a;">
-                  <img src="cid:banner_image" alt="Secure Voting System" style="width:100%; max-width:760px; display:block; border:none;" />
-                </td>
-              </tr>
+    <div style="font-family:Arial,Helvetica,sans-serif; color:#1e293b; max-width:560px; margin:0 auto; padding:32px 20px;">
 
-              <!-- BODY -->
-              <tr>
-                <td style="padding:38px 42px 28px 42px; color:#0f172a;">
-                  <div style="font-size:20px; margin-bottom:18px; line-height:1.5;">
-                    Hello <span style="font-weight:800; color:#123f98;">{voter_name}</span>,
-                  </div>
+      <p style="font-size:18px; margin:0 0 24px 0;">
+        Hello <strong>{voter_name}</strong>,
+      </p>
 
-                  <div style="font-size:17px; margin-bottom:8px; line-height:1.6; color:#334155;">
-                    You are registered for the election:
-                  </div>
+      <p style="font-size:15px; margin:0 0 8px 0; color:#475569;">
+        You are registered for the election:
+      </p>
+      <p style="font-size:22px; font-weight:bold; margin:0 0 28px 0; color:#0f172a;">
+        {title}
+      </p>
 
-                  <div style="font-size:30px; font-weight:900; color:#0f2f72; line-height:1.2; margin-bottom:18px;">
-                    {title}
-                  </div>
+      <p style="font-size:15px; margin:0 0 16px 0; color:#475569;">
+        Your personal and confidential voting credentials:
+      </p>
 
-                  <div style="font-size:18px; margin-bottom:22px; color:#334155; line-height:1.6;">
-                    Here are your <span style="color:#1d4ed8; font-weight:700;">personal and confidential</span> voting credentials:
-                  </div>
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px; font-weight:bold; color:#1d4ed8; margin-bottom:6px;">N1 — Identification</div>
+        <div style="font-size:24px; font-weight:bold; letter-spacing:2px; color:#1e3a8a; font-family:monospace;">
+          {n1_fmt}
+        </div>
+      </div>
 
-                  <!-- CODE CARDS -->
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
-                         style="border:1px solid #dbe7ff; border-radius:18px; overflow:hidden; background:#fbfdff;">
-                    <tr>
-                      <td width="50%" valign="top" style="padding:28px 26px; border-right:1px solid #e6eefc;">
-                        <div style="font-size:18px; font-weight:800; color:#1d4ed8; margin-bottom:10px;">👤 N1 CODE</div>
-                        <div style="font-size:13px; font-weight:700; letter-spacing:0.8px; color:#64748b; margin-bottom:18px;">IDENTIFICATION CODE</div>
-                        <div style="background:#eef4ff; border:2px dashed #8fb1ff; border-radius:16px; padding:18px 14px; text-align:center; font-size:28px; font-weight:900; letter-spacing:2px; color:#123f98;">
-                          {n1_fmt}
-                        </div>
-                      </td>
+      <div style="margin-bottom:28px;">
+        <div style="font-size:13px; font-weight:bold; color:#15803d; margin-bottom:6px;">N2 — Anonymity</div>
+        <div style="font-size:24px; font-weight:bold; letter-spacing:2px; color:#14532d; font-family:monospace;">
+          {n2_fmt}
+        </div>
+      </div>
 
-                      <td width="50%" valign="top" style="padding:28px 26px;">
-                        <div style="font-size:18px; font-weight:800; color:#15803d; margin-bottom:10px;">🎭 N2 CODE</div>
-                        <div style="font-size:13px; font-weight:700; letter-spacing:0.8px; color:#64748b; margin-bottom:18px;">ANONYMITY CODE</div>
-                        <div style="background:#eefbf1; border:2px dashed #7ccc97; border-radius:16px; padding:18px 14px; text-align:center; font-size:28px; font-weight:900; letter-spacing:2px; color:#166534;">
-                          {n2_fmt}
-                        </div>
-                      </td>
-                    </tr>
-                  </table>
+      <hr style="border:none; border-top:1px solid #e2e8f0; margin:28px 0;" />
 
-                  <!-- IMPORTANT BOX -->
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
-                         style="margin-top:22px; background:#f8fbff; border:1px solid #dce9ff; border-radius:18px;">
-                    <tr>
-                      <td style="padding:22px 24px;">
-                        <div style="font-size:16px; color:#2563eb; font-weight:bold; margin-bottom:10px;">🔒 IMPORTANT</div>
-                        <div style="color:#334155; font-size:15px; line-height:1.6;">
-                          ✔ Do not share these codes with anyone.<br>
-                          ✔ The N1 code will be required to access the voting system.<br>
-                          ✔ The N2 code ensures the anonymity of your ballot.
-                        </div>
-                      </td>
-                    </tr>
-                  </table>
+      <p style="font-size:13px; font-weight:bold; color:#1d4ed8; margin:0 0 8px 0;">Important</p>
+      <ul style="font-size:14px; color:#475569; line-height:1.7; margin:0; padding-left:20px;">
+        <li>Do not share these codes with anyone.</li>
+        <li>N1 is required to access the voting system.</li>
+        <li>N2 ensures the anonymity of your ballot.</li>
+      </ul>
 
-                </td>
-              </tr>
-              
-              <!-- FOOTER -->
-              <tr>
-                <td style="background:#071a3a; color:#ffffff; padding:18px 28px; text-align:center;">
-                  <div style="font-size:13px; opacity:0.8;">Secure. Transparent. Trustworthy.</div>
-                </td>
-              </tr>
+      <hr style="border:none; border-top:1px solid #e2e8f0; margin:28px 0;" />
+      <p style="font-size:12px; color:#94a3b8; margin:0; text-align:center;">
+        Secure. Transparent. Trustworthy.
+      </p>
 
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
-    """
+    </div>"""
 
-
+    msg.attach(MIMEText(text_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
- 
-    try:
-        #path to the image
-        img_path = os.path.join(os.path.dirname(__file__), "assets", "banner.png")
-        with open(img_path, "rb") as img_file:
-            img_data = img_file.read()
-            
-        image = MIMEImage(img_data, name="banner.png")
-        image.add_header('Content-ID', '<banner_image>')
-        image.add_header('Content-Disposition', 'inline', filename='banner.png')
-        msg.attach(image)
-    except Exception as e:
-        log(f"impossible to load banner image {e}")
-
-    #  send the email
+    # Send
     try:
         with smtplib.SMTP(EMAIL_SMTP, EMAIL_PORT) as server:
             server.ehlo()
@@ -169,7 +124,7 @@ def send_voter_credentials(to_email: str, voter_name: str, n1_fmt: str, n2_fmt: 
             server.sendmail(EMAIL_SENDER, to_email, msg.as_string())
         return True
     except Exception as ex:
-        log(f"failed to send email to  {to_email}: {ex}")
+        log(f"failed to send email to {to_email}: {ex}")
         return False
 
 # ── Health ─────────────────────────────────────────────────────────────────────

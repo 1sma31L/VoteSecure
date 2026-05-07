@@ -86,7 +86,7 @@ export function useSetupCommissioner() {
 
 export function useRegisterVoter() {
   return useMutation({
-    mutationFn: ({ name }) => post('/commissioner/register_voter', { name }),
+    mutationFn: ({ name, email }) => post('/commissioner/register_voter', { name, email }),
   })
 }
 

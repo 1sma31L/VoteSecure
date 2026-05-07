@@ -26,11 +26,18 @@ export default function CreateElection() {
 
   const handleCreate = async () => {
     const opts = options.split('\n').map((s) => s.trim()).filter(Boolean)
-    const voterList = voters.split('\n').map((s) => s.trim()).filter(Boolean)
+    const voterList = voters.split('\n').map((line) => {
+      const parts = line.split(',').map((s) => s.trim())
+      const name = parts[0] || ''
+      const email = parts[1] || ''
+      return { name, email }
+    }).filter((v) => v.name)
 
     if (!title.trim()) { setError('Titre requis'); return }
     if (opts.length < 2) { setError('Au moins 2 options requises'); return }
     if (voterList.length < 1) { setError('Au moins un électeur requis'); return }
+    const missingEmails = voterList.filter((v) => !v.email)
+    if (missingEmails.length > 0) { setError(`Email manquant pour : ${missingEmails.map((v) => v.name).join(', ')}`); return }
 
     setError(null)
     setBusy(true)
@@ -55,14 +62,16 @@ export default function CreateElection() {
       // Step 3: Register voters
       setStep('Inscription des électeurs…')
       const cards = []
-      for (const name of voterList) {
-        const cd = await registerVoter.mutateAsync({ name })
+      for (const { name, email } of voterList) {
+        const cd = await registerVoter.mutateAsync({ name, email })
         if (cd.ok) {
           cards.push({
             name,
+            email,
             N1_fmt: cd.N1_formatted,
             N2_fmt: cd.N2_formatted,
             tth_N2: cd.tth_N2,
+            email_sent: cd.email_sent,
           })
         }
       }
@@ -118,12 +127,12 @@ export default function CreateElection() {
         <div className="mb-5">
           <label className="block text-[0.7rem] font-bold text-brand-400 uppercase tracking-widest mb-1.5 font-mono">
             Électeurs{' '}
-            <span className="normal-case tracking-normal font-normal text-slate-500">(un nom par ligne)</span>
+            <span className="normal-case tracking-normal font-normal text-slate-500">(nom, email — un par ligne)</span>
           </label>
           <textarea
             value={voters}
             onChange={(e) => setVoters(e.target.value)}
-            placeholder={"Ariane Dupont\nMohammed Aït\nYasmine Benali"}
+            placeholder={"Ariane Dupont, ariane@mail.com\nMohammed Aït, mohammed@mail.com\nYasmine Benali, yasmine@mail.com"}
             rows={4}
             className="w-full bg-surface-3 border border-surface-5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 outline-none transition-all resize-y min-h-[100px] leading-relaxed"
           />
