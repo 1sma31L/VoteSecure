@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-const API = '/api'
+const API = import.meta.env.VITE_API_URL || '/api'
 
 async function apiFetch(url, options) {
   const res = await fetch(API + url, {
