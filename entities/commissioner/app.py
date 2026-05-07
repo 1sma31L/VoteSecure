@@ -1,16 +1,12 @@
 """
 commissioner/app.py — Service Commissaire
-Responsabilités :
-  - Inscrire les électeurs (génère N1, N2, tth(N2))
-  - Valider / consommer les N1 lors du vote
-  - Vérifier les tth(N2) lors du dépouillement
-  - Ouvrir / fermer le scrutin
 PORT : 5001
 """
 import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage 
 from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -43,33 +39,128 @@ STATE = {
 def log(msg):
     STATE["audit"].append({"time": datetime.now().strftime("%H:%M:%S"), "msg": msg})
     print(f"[COMMISSIONER] {msg}")
-
 def send_voter_credentials(to_email: str, voter_name: str, n1_fmt: str, n2_fmt: str, title: str):
-    """Send N1 and N2 codes to the voter by email."""
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"Your voting codes {title}"
+    """Send N1 and N2 codes to the voter by email with an inline image."""
+    
+
+    msg = MIMEMultipart("related")
+    msg["Subject"] = f"Vos codes de vote — {title}"
     msg["From"]    = EMAIL_SENDER
     msg["To"]      = to_email
 
-    body = f"""Hello {voter_name},
+   
+    html_body = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+    </head>
+    <body style="margin:0; padding:0; background:#f3f6fb; font-family:Arial, sans-serif;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="padding:24px 12px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="760" cellspacing="0" cellpadding="0" border="0"
+                   style="width:760px; max-width:760px; background:#ffffff; border-radius:22px; overflow:hidden; box-shadow:0 10px 30px rgba(15, 23, 42, 0.12);">
+              
+              <!-- IMAGE D'EN-TÊTE APPELÉE DEPUIS LE FICHIER JOINT -->
+              <tr>
+                <td style="background:#071a3a;">
+                  <img src="cid:banner_image" alt="Secure Voting System" style="width:100%; max-width:760px; display:block; border:none;" />
+                </td>
+              </tr>
 
-You are registered for the election: {title}
+              <!-- BODY -->
+              <tr>
+                <td style="padding:38px 42px 28px 42px; color:#0f172a;">
+                  <div style="font-size:20px; margin-bottom:18px; line-height:1.5;">
+                    Hello <span style="font-weight:800; color:#123f98;">{voter_name}</span>,
+                  </div>
 
-Here are your personal and confidential codes:
+                  <div style="font-size:17px; margin-bottom:8px; line-height:1.6; color:#334155;">
+                    You are registered for the election:
+                  </div>
 
-  N1 Code (identification): {n1_fmt}
-  N2 Code (anonymity):      {n2_fmt}
+                  <div style="font-size:30px; font-weight:900; color:#0f2f72; line-height:1.2; margin-bottom:18px;">
+                    {title}
+                  </div>
 
-IMPORTANT:
-  - Do not share these codes with anyone.
-  - The N1 code will be required to access the voting system.
-  - The N2 code ensures the anonymity of your ballot.
+                  <div style="font-size:18px; margin-bottom:22px; color:#334155; line-height:1.6;">
+                    Here are your <span style="color:#1d4ed8; font-weight:700;">personal and confidential</span> voting credentials:
+                  </div>
 
----
-Secure electronic voting system
-"""
-    msg.attach(MIMEText(body, "plain", "utf-8"))
+                  <!-- CODE CARDS -->
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                         style="border:1px solid #dbe7ff; border-radius:18px; overflow:hidden; background:#fbfdff;">
+                    <tr>
+                      <td width="50%" valign="top" style="padding:28px 26px; border-right:1px solid #e6eefc;">
+                        <div style="font-size:18px; font-weight:800; color:#1d4ed8; margin-bottom:10px;">👤 N1 CODE</div>
+                        <div style="font-size:13px; font-weight:700; letter-spacing:0.8px; color:#64748b; margin-bottom:18px;">IDENTIFICATION CODE</div>
+                        <div style="background:#eef4ff; border:2px dashed #8fb1ff; border-radius:16px; padding:18px 14px; text-align:center; font-size:28px; font-weight:900; letter-spacing:2px; color:#123f98;">
+                          {n1_fmt}
+                        </div>
+                      </td>
 
+                      <td width="50%" valign="top" style="padding:28px 26px;">
+                        <div style="font-size:18px; font-weight:800; color:#15803d; margin-bottom:10px;">🎭 N2 CODE</div>
+                        <div style="font-size:13px; font-weight:700; letter-spacing:0.8px; color:#64748b; margin-bottom:18px;">ANONYMITY CODE</div>
+                        <div style="background:#eefbf1; border:2px dashed #7ccc97; border-radius:16px; padding:18px 14px; text-align:center; font-size:28px; font-weight:900; letter-spacing:2px; color:#166534;">
+                          {n2_fmt}
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <!-- IMPORTANT BOX -->
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                         style="margin-top:22px; background:#f8fbff; border:1px solid #dce9ff; border-radius:18px;">
+                    <tr>
+                      <td style="padding:22px 24px;">
+                        <div style="font-size:16px; color:#2563eb; font-weight:bold; margin-bottom:10px;">🔒 IMPORTANT</div>
+                        <div style="color:#334155; font-size:15px; line-height:1.6;">
+                          ✔ Do not share these codes with anyone.<br>
+                          ✔ The N1 code will be required to access the voting system.<br>
+                          ✔ The N2 code ensures the anonymity of your ballot.
+                        </div>
+                      </td>
+                    </tr>
+                  </table>
+
+                </td>
+              </tr>
+              
+              <!-- FOOTER -->
+              <tr>
+                <td style="background:#071a3a; color:#ffffff; padding:18px 28px; text-align:center;">
+                  <div style="font-size:13px; opacity:0.8;">Secure. Transparent. Trustworthy.</div>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    """
+
+
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+ 
+    try:
+        #path to the image
+        img_path = os.path.join(os.path.dirname(__file__), "assets", "banner.png")
+        with open(img_path, "rb") as img_file:
+            img_data = img_file.read()
+            
+        image = MIMEImage(img_data, name="banner.png")
+        image.add_header('Content-ID', '<banner_image>')
+        image.add_header('Content-Disposition', 'inline', filename='banner.png')
+        msg.attach(image)
+    except Exception as e:
+        log(f"impossible to load banner image {e}")
+
+    #  send the email
     try:
         with smtplib.SMTP(EMAIL_SMTP, EMAIL_PORT) as server:
             server.ehlo()
@@ -78,7 +169,7 @@ Secure electronic voting system
             server.sendmail(EMAIL_SENDER, to_email, msg.as_string())
         return True
     except Exception as ex:
-        log(f"Failed to send email to {to_email}: {ex}")
+        log(f"failed to send email to  {to_email}: {ex}")
         return False
 
 # ── Health ─────────────────────────────────────────────────────────────────────
