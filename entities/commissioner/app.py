@@ -8,6 +8,9 @@ Responsabilités :
 PORT : 5001
 """
 import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -19,11 +22,17 @@ from crypto.encoding import generate_code, format_code, tth
 app = Flask(__name__)
 CORS(app)
 
+# ── Config email ───────────────────────────────────────────────────────────────
+EMAIL_SENDER   = os.environ.get("EMAIL_SENDER",   "voteadmin2005@gmail.com")
+EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "gaab vfyt razk urzz")
+EMAIL_SMTP     = "smtp.gmail.com"
+EMAIL_PORT     = 587
+
 STATE = {
-    "phase": "setup",          
+    "phase": "setup",
     "election_title": "",
     "candidates": [],
-    "voters": {},               # voter_id → { name, N1, N2, tth_N2, voted }
+    "voters": {},               # voter_id → { name, email, N1, N2, tth_N2, voted }
     "valid_N1": set(),          # N1 codes still usable
     "used_N1": set(),           # N1 codes already consumed
     "tth_N2_set": set(),        # all registered tth(N2)
@@ -35,6 +44,42 @@ def log(msg):
     STATE["audit"].append({"time": datetime.now().strftime("%H:%M:%S"), "msg": msg})
     print(f"[COMMISSIONER] {msg}")
 
+def send_voter_credentials(to_email: str, voter_name: str, n1_fmt: str, n2_fmt: str, title: str):
+    """Send N1 and N2 codes to the voter by email."""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"Your voting codes {title}"
+    msg["From"]    = EMAIL_SENDER
+    msg["To"]      = to_email
+
+    body = f"""Hello {voter_name},
+
+You are registered for the election: {title}
+
+Here are your personal and confidential codes:
+
+  N1 Code (identification): {n1_fmt}
+  N2 Code (anonymity):      {n2_fmt}
+
+IMPORTANT:
+  - Do not share these codes with anyone.
+  - The N1 code will be required to access the voting system.
+  - The N2 code ensures the anonymity of your ballot.
+
+---
+Secure electronic voting system
+"""
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    try:
+        with smtplib.SMTP(EMAIL_SMTP, EMAIL_PORT) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_SENDER, to_email, msg.as_string())
+        return True
+    except Exception as ex:
+        log(f"Failed to send email to {to_email}: {ex}")
+        return False
 
 # ── Health ─────────────────────────────────────────────────────────────────────
 @app.route("/health")
@@ -62,24 +107,43 @@ def setup():
 def register_voter():
     if STATE["phase"] != "registration":
         return jsonify({"error": "Pas en phase d'inscription"}), 400
-    name = request.json.get("name", "Électeur")
+
+    name  = request.json.get("name", "Électeur")
+    email = request.json.get("email", "").strip()
+
     voter_id = secrets.token_hex(8)
     N1 = generate_code(12)
     N2 = generate_code(12)
     tth_n2 = tth(N2)
+
     STATE["valid_N1"].add(N1)
     STATE["tth_N2_set"].add(tth_n2)
     STATE["voters"][voter_id] = {
-        "name": name, "N1": N1, "N2": N2, "tth_N2": tth_n2, "voted": False
+        "name": name, "email": email,
+        "N1": N1, "N2": N2, "tth_N2": tth_n2, "voted": False
     }
-    log(f"Électeur '{name}' inscrit (N1={N1[:4]}…)")
+
+    n1_fmt = format_code(N1)
+    n2_fmt = format_code(N2)
+
+    # Send credentials by email
+    email_sent = False
+    if email:
+        email_sent = send_voter_credentials(
+            email, name, n1_fmt, n2_fmt, STATE["election_title"]
+        )
+        log(f"Electeur '{name}' <{email}> — email {'envoye' if email_sent else 'ECHEC'}")
+    else:
+        log(f"Electeur '{name}' inscrit sans email (N1={N1[:4]}...)")
+
     return jsonify({
         "ok": True,
         "voter_id": voter_id,
         "N1": N1, "N2": N2,
-        "N1_formatted": format_code(N1),
-        "N2_formatted": format_code(N2),
+        "N1_formatted": n1_fmt,
+        "N2_formatted": n2_fmt,
         "tth_N2": tth_n2,
+        "email_sent": email_sent,
     })
 
 
@@ -101,7 +165,7 @@ def close_voting():
     return jsonify({"ok": True, "phase": "counting"})
 
 
-# ── Validation N1 (appelé par l'administrateur) ────────────────────────────────
+# ── Validation of N1 ────────────────────────────────
 @app.route("/api/validate_N1", methods=["POST"])
 def validate_N1():
     N1 = request.json.get("N1", "").replace(" ", "").upper()
@@ -110,23 +174,22 @@ def validate_N1():
     return jsonify({"valid": valid})
 
 
-# ── Consommation N1 (appelé par l'anonymiseur après dépôt du bulletin) ─────────
+# ── tag N1 As used ──────────
 @app.route("/api/consume_N1", methods=["POST"])
 def consume_N1():
     N1 = request.json.get("N1", "").replace(" ", "").upper()
     if N1 not in STATE["valid_N1"] or N1 in STATE["used_N1"]:
         return jsonify({"ok": False, "error": "N1 invalide ou déjà consommé"})
     STATE["used_N1"].add(N1)
-    # Marquer l'électeur
     for v in STATE["voters"].values():
         if v["N1"] == N1:
             v["voted"] = True
             break
-    log(f"N1={N1[:4]}… consommé (vote enregistré)")
+    log(f"N1={N1[:4]}... consommé (vote enregistré)")
     return jsonify({"ok": True})
 
 
-# ── Vérification tth(N2) (appelé par le décompteur) ───────────────────────────
+# ── Verification of hash(N2) ───────────────────────────
 @app.route("/api/verify_tth_N2", methods=["POST"])
 def verify_tth_N2():
     tth_n2 = request.json.get("tth_N2", "")
@@ -134,7 +197,7 @@ def verify_tth_N2():
     return jsonify({"valid": valid})
 
 
-# ── État / audit ───────────────────────────────────────────────────────────────
+# ── state  ───────────────────────────────────────────────────────────────
 @app.route("/api/state")
 def get_state():
     return jsonify({
@@ -157,4 +220,4 @@ def reset():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=False , threaded=True)
+    app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)
