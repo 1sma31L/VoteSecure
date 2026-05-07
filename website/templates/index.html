@@ -578,8 +578,8 @@
       </div>
       <hr>
       <div class="field">
-        <label>Électeurs <span style="text-transform:none;font-weight:400;color:var(--gray400)">(un nom par ligne)</span></label>
-        <textarea id="host-voters" placeholder="Ariane Dupont&#10;Mohammed Aït&#10;Yasmine Benali"></textarea>
+      <label>Électeurs <span style="text-transform:none;font-weight:400;color:var(--gray400)">(Nom, Email - un par ligne)</span></label>
+      <textarea id="host-voters" placeholder="Ariane Dupont, ariane@gmail.com&#10;Mohammed Aït, moha@test.com"></textarea>
       </div>
       <div id="create-alert"></div>
       <button class="btn btn-navy btn-full btn-lg" onclick="createSession()" id="btn-create">
@@ -1012,17 +1012,26 @@ async function createSession() {
     S.counter_e = cp.counter.e;
     S.counter_N = cp.counter.N;
 
-    setButtonBusy(btn, 'Inscription des électeurs…');
+  setButtonBusy(btn, 'Inscription des électeurs…');
     const cards = [];
-    for (const name of voters) {
+    for (const line of voters) {
+      let name = line;
+      let email = "";
+      if (line.includes(',')) {
+        const parts = line.split(',');
+        name = parts[0].trim();
+        email = parts[1].trim();
+      }
+
       const cd = await fetchJSON('/api/commissioner/register_voter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: name, email: email }),
       });
+      
       if (cd.ok) {
         cards.push({
-          name,
+          name: name + (cd.email_sent ? " ✉️ (Envoyé)" : ""),
           N1_fmt: cd.N1_formatted,
           N2_fmt: cd.N2_formatted,
           tth_N2: cd.tth_N2,
