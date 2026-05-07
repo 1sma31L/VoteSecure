@@ -22,7 +22,7 @@ ANONYMISER_URL = os.environ.get("ANONYMISER_URL", "http://localhost:5003")
 COUNTER_URL = os.environ.get("COUNTER_URL", "http://localhost:5004")
 
 
-def proxy_get(url, timeout=10):
+def proxy_get(url, timeout=30):
     try:
         r = requests.get(url, timeout=timeout)
         return jsonify(r.json()), r.status_code
@@ -30,7 +30,7 @@ def proxy_get(url, timeout=10):
         return jsonify({"error": str(ex)}), 503
 
 
-def proxy_post(url, data=None, timeout=15, retries=1):
+def proxy_post(url, data=None, timeout=120, retries=1):
 
     payload = data or request.json
     last_ex = None
