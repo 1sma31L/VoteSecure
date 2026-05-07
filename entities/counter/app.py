@@ -15,7 +15,13 @@ from crypto.rsa_ops import rsa_decrypt, rsa_verify
 from crypto.encoding import tth
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+    allow_headers=["*"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 
 COMMISSIONER_URL  = os.environ.get("COMMISSIONER_URL",  "http://localhost:5001")
 ADMINISTRATOR_URL = os.environ.get("ADMINISTRATOR_URL", "http://localhost:5002")

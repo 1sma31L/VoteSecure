@@ -14,7 +14,13 @@ from crypto.rsa_core import generate_rsa_keypair
 from crypto.blind_signature import sign_blind
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+    allow_headers=["*"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 
 
 COMMISSIONER_URL = os.environ.get("COMMISSIONER_URL", "http://localhost:5001")

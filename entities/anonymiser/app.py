@@ -21,7 +21,13 @@ from crypto.rsa_ops import rsa_verify
 # ═══════════════════════════════════════════════════════════════════════════════
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+    allow_headers=["*"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # URLs des services

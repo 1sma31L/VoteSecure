@@ -15,7 +15,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from crypto.encoding import generate_code, format_code, tth
 
 app = Flask(__name__)
-CORS(app)
+CORS(
+    app,
+    resources={r"/*": {"origins": "*"}},
+    supports_credentials=True,
+    allow_headers=["*"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 
 # ── Config email ───────────────────────────────────────────────────────────────
 EMAIL_SENDER   = os.environ.get("EMAIL_SENDER",   "voteadmin2005@gmail.com")
