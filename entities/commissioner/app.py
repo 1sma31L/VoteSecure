@@ -20,7 +20,7 @@ app = Flask(__name__)
 CORS(app)
 
 STATE = {
-    "phase": "setup",           # setup → registration → voting → counting → done
+    "phase": "setup",          
     "election_title": "",
     "candidates": [],
     "voters": {},               # voter_id → { name, N1, N2, tth_N2, voted }

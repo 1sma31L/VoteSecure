@@ -1,15 +1,5 @@
 """
 anonymiser/app.py — Service Anonymiseur
-
-Rôle :
-    - Reçoit les votes depuis le frontend
-    - Vérifie la signature RSA de l'administrateur
-    - Vérifie et consomme le N1 auprès du commissaire
-    - STOCKE les bulletins anonymisés localement
-    - À la fin de l'élection :
-            → envoie TOUS les bulletins au décompteur
-    - Garantit que le décompteur ne voit JAMAIS le N1
-
 PORT : 5003
 """
 

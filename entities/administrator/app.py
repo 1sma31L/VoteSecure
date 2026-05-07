@@ -1,10 +1,5 @@
 """
 administrator/app.py — Service Administrateur
-Responsabilités :
-  - Générer la paire de clés RSA de l'administrateur
-  - Vérifier l'éligibilité d'un électeur (via le commissaire)
-  - Signer à l'aveugle le bulletin masqué (blind signature)
-  - Publier la clé publique
 PORT : 5002
 """
 import os, sys
@@ -21,12 +16,12 @@ from crypto.blind_signature import sign_blind
 app = Flask(__name__)
 CORS(app)
 
-# URL du commissaire (modifiable via variable d'environnement)
+
 COMMISSIONER_URL = os.environ.get("COMMISSIONER_URL", "http://localhost:5001")
 
 STATE = {
     "e": None, "d": None, "N": None,
-    "used_N1": set(),           # sécurité locale en plus du commissaire
+    "used_N1": set(),           
     "audit": [],
 }
 
@@ -52,7 +47,7 @@ def health():
                     "keys_ready": STATE["e"] is not None})
 
 
-# ── Génération des clés ────────────────────────────────────────────────────────
+# ── keys generation ────────────────────────────────────────────────────────
 @app.route("/api/generate_keys", methods=["POST"])
 def generate_keys():
     bits = request.json.get("bits", 2048) if request.json else 2048
@@ -69,7 +64,7 @@ def generate_keys():
 })
 
 
-# ── Clé publique ──────────────────────────────────────────────────────────────
+# ── public key  ──────────────────────────────────────────────────────────────
 @app.route("/api/public_key")
 def public_key():
     if STATE["e"] is None:
@@ -82,7 +77,7 @@ def public_key():
 
 
 
-# ── Signature aveugle ─────────────────────────────────────────────────────────
+# ── blind signing ─────────────────────────────────────────────────────────
 @app.route("/api/sign_blind", methods=["POST"])
 def sign_blind_route():
     if STATE["d"] is None:
@@ -98,7 +93,7 @@ def sign_blind_route():
     if not (0 < m_masked < STATE["N"]):
         return jsonify({"error": "m_masked hors domaine"}), 400
 
-    # Double verification : commissaire + garde locale
+   
     if N1 in STATE["used_N1"]:
         log(f"Refus N1={N1[:4]}... - deja utilise localement")
         return jsonify({"error": "N1 deja utilise"}), 403
@@ -113,7 +108,7 @@ def sign_blind_route():
     return jsonify({"s_blind": str(s_blind)})
 
 
-# ── État / audit ──────────────────────────────────────────────────────────────
+# ── state ──────────────────────────────────────────────────────────────
 @app.route("/api/state")
 def get_state():
     return jsonify({
