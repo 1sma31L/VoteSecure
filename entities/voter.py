@@ -1,16 +1,13 @@
 # voter.py
-# Compatible with:
-#   blind_sign.py → blind_message(m, e, N), unblind_signature(s, k, N)
-#   rsa_utils.py  → rsa_encrypt(m, e, N),   rsa_verify(m, s, e, N)
-#   encoding.py   → encode_vote(vote, N2, rsa_modulus)
+
 
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'crypto'))
 
-from blind_sign import blind_message, unblind_signature
-from rsa_utils  import rsa_encrypt, rsa_verify
-from encoding   import encode_vote
+from blind_signature import blind_message, unblind_signature
+from rsa_ops import rsa_encrypt, rsa_verify
+from encoding import encode_vote
 
 
 class Voter:
@@ -94,7 +91,7 @@ class Voter:
        
         m_prime = self.blind_ballot(m)
 
-        s_blind = administrator.process_request(self.N1, m_prime)
+        s_blind = administrator.sign_blinded_vote(self.N1, m_prime)
 
         signature = self.unblind(s_blind)
 

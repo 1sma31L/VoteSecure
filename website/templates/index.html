@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoteSecure — Scrutin électronique distribué</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens ─────────────────────────────────────────────────────── */
+    :root {
+      --navy:    #1a2f6e;
+      --blue:    #2d5be3;
+      --blue2:   #4a7cf0;
+      --blue-lt: #e8eeff;
+      --blue-md: #c5d3fc;
+      --sky:     #f0f4ff;
+      --white:   #ffffff;
+      --gray50:  #f8f9fc;
+      --gray100: #eef0f6;
+      --gray200: #dde1ef;
+      --gray400: #9198b5;
+      --gray600: #5a6385;
+      --text:    #1a1f3c;
+      --success:    #0e9f6e;
+      --success-lt: #ecfdf5;
+      --error:      #dc2626;
+      --error-lt:   #fef2f2;
+      --warn:       #d97706;
+      --warn-lt:    #fffbeb;
+      --shadow-sm: 0 1px 3px rgba(26,47,110,.08);
+      --shadow:    0 4px 16px rgba(26,47,110,.1);
+      --shadow-lg: 0 20px 48px rgba(26,47,110,.14);
+      --radius:    16px;
+      --radius-sm: 10px;
+    }
+
+    /* ── Reset & base ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--sky);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Nav ───────────────────────────────────────────────────────────────── */
+    nav {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray100);
+      padding: 0 40px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--navy), var(--blue2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(45,91,227,.35);
+    }
+    .logo-icon svg { width: 18px; height: 18px; }
+    .logo-text { font-weight: 800; font-size: 1.1rem; color: var(--navy); letter-spacing: -.02em; }
+    .logo-text span { color: var(--blue); }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+
+    /* ── Page system ───────────────────────────────────────────────────────── */
+    .page { display: none; min-height: calc(100vh - 64px); animation: fadeUp .3s ease; }
+    .page.active { display: flex; flex-direction: column; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: .875rem; font-weight: 700;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      letter-spacing: -.01em;
+    }
+    .btn:disabled { opacity: .4; cursor: not-allowed; transform: none !important; }
+    .btn-primary { background: var(--blue); color: white; box-shadow: 0 2px 8px rgba(45,91,227,.3); }
+    .btn-primary:hover { background: #2449c8; transform: translateY(-1px); }
+    .btn-navy { background: var(--navy); color: white; box-shadow: 0 2px 8px rgba(26,47,110,.25); }
+    .btn-navy:hover { background: #142558; transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent; color: var(--gray600);
+      padding: 8px 14px; font-size: .8rem;
+      border: 1px solid var(--gray200);
+    }
+    .btn-ghost:hover { background: var(--gray50); color: var(--text); }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #0b8a5f; transform: translateY(-1px); }
+    .btn-danger { background: var(--error); color: white; }
+    .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); }
+    .btn-lg { padding: 13px 28px; font-size: 1rem; border-radius: var(--radius); }
+    .btn-full { width: 100%; }
+
+    /* Hero buttons (standalone, not .btn) */
+    .btn-hero-primary {
+      background: white; color: var(--navy);
+      font-weight: 800; padding: 14px 30px; border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.2);
+      border: none; cursor: pointer;
+      font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem;
+      transition: all .15s;
+    }
+    .btn-hero-primary:hover { background: #f0f4ff; transform: translateY(-2px); }
+    .btn-hero-outline {
+      background: rgba(255,255,255,.12); color: white;
+      border: 1.5px solid rgba(255,255,255,.35);
+      padding: 13px 28px; border-radius: 12px;
+      font-weight: 700; cursor: pointer;
+      font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem;
+      transition: all .15s;
+    }
+    .btn-hero-outline:hover { background: rgba(255,255,255,.2); }
+
+    /* ── Cards ─────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--gray100);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-elevated { box-shadow: var(--shadow); }
+
+    /* ── Form fields ───────────────────────────────────────────────────────── */
+    .field { margin-bottom: 18px; }
+    label {
+      font-size: .72rem; font-weight: 700;
+      color: var(--gray600);
+      text-transform: uppercase; letter-spacing: .07em;
+      margin-bottom: 6px; display: block;
+    }
+    input, textarea, select {
+      width: 100%;
+      background: var(--gray50);
+      border: 1.5px solid var(--gray200);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 11px 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(45,91,227,.1);
+      background: var(--white);
+    }
+    input::placeholder, textarea::placeholder { color: var(--gray400); }
+    input.mono {
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: .12em; text-align: center;
+    }
+    textarea { resize: vertical; min-height: 100px; line-height: 1.7; }
+    hr { border: none; border-top: 1px solid var(--gray100); margin: 22px 0; }
+
+    /* ── Alerts ────────────────────────────────────────────────────────────── */
+    .alert {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      font-size: .855rem; line-height: 1.55;
+      margin-bottom: 14px;
+    }
+    .alert-success { background: var(--success-lt); border: 1px solid #a7f3d0; color: #065f46; }
+    .alert-error   { background: var(--error-lt);   border: 1px solid #fca5a5; color: #991b1b; }
+    .alert-info    { background: var(--blue-lt);    border: 1px solid var(--blue-md); color: var(--navy); }
+    .alert-warning { background: var(--warn-lt);    border: 1px solid #fde68a; color: #92400e; }
+    .alert-icon {
+      flex-shrink: 0; width: 18px; height: 18px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 800; margin-top: 1px;
+    }
+    .alert-success .alert-icon { background: #a7f3d0; color: #065f46; }
+    .alert-error   .alert-icon { background: #fca5a5; color: #991b1b; }
+    .alert-info    .alert-icon { background: var(--blue-md); color: var(--navy); }
+    .alert-warning .alert-icon { background: #fde68a; color: #92400e; }
+
+    /* ── Layout ────────────────────────────────────────────────────────────── */
+    .container      { max-width: 600px;  margin: 0 auto; padding: 48px 24px 80px; width: 100%; flex: 1; }
+    .container-wide { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; width: 100%; flex: 1; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+    .flex-center  { display: flex; align-items: center; }
+    .gap-8  { gap: 8px; }
+    .mt-16  { margin-top: 16px; }
+    .mb-8   { margin-bottom: 8px; }
+    .mb-12  { margin-bottom: 12px; }
+    .mb-16  { margin-bottom: 16px; }
+    .text-muted  { color: var(--gray600); }
+    .text-sm     { font-size: .85rem; }
+    .text-center { text-align: center; }
+
+    /* ── Badges ────────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 20px;
+      font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .badge-blue { background: var(--blue-lt); color: var(--navy); border: 1px solid var(--blue-md); }
+
+    /* ── Spinner & dots ────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block; width: 15px; height: 15px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+    }
+    .spinner-blue { border-color: var(--blue-md); border-top-color: var(--blue); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot-blue   { background: var(--blue);    box-shadow: 0 0 0 3px rgba(45,91,227,.2); animation: pulse 2s infinite; }
+    .dot-green  { background: var(--success); box-shadow: 0 0 0 3px rgba(14,159,110,.2); animation: pulse 2s infinite; }
+    .dot-gray   { background: var(--gray400); }
+    .dot-orange { background: var(--warn); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+    /* ── Hero ──────────────────────────────────────────────────────────────── */
+    .hero-wrap {
+      background: linear-gradient(160deg, var(--navy) 0%, var(--blue) 60%, var(--blue2) 100%);
+      min-height: 420px;
+      display: flex; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .hero-wrap::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle at 70% 50%, rgba(255,255,255,.07) 0%, transparent 50%);
+    }
+    .hero-wrap::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0; right: 0; height: 60px;
+      background: var(--sky);
+      clip-path: ellipse(60% 100% at 50% 100%);
+    }
+    .hero-inner {
+      max-width: 700px; margin: 0 auto;
+      padding: 70px 32px 90px;
+      text-align: center;
+      position: relative; z-index: 1;
+    }
+    .hero-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 30px; padding: 6px 16px;
+      margin-bottom: 26px;
+      font-size: .75rem; font-weight: 600;
+      color: rgba(255,255,255,.9); letter-spacing: .04em;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hero-inner h1 {
+      font-size: 3rem; font-weight: 800;
+      color: white; letter-spacing: -.03em; line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .hero-inner h1 em { font-style: italic; opacity: .85; }
+    .hero-inner p {
+      font-size: 1rem; color: rgba(255,255,255,.75);
+      max-width: 460px; margin: 0 auto 36px; line-height: 1.7;
+    }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* ── Services status ───────────────────────────────────────────────────── */
+    .services-bar { max-width: 1000px; margin: 0 auto; padding: 28px 24px 0; }
+    .services-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    @media (max-width: 700px) { .services-grid { grid-template-columns: repeat(2, 1fr); } }
+    .svc-card {
+      background: var(--white); border: 1px solid var(--gray100);
+      border-radius: var(--radius-sm); padding: 14px 16px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .svc-info { flex: 1; min-width: 0; }
+    .svc-name { font-size: .75rem; font-weight: 700; color: var(--navy); }
+    .svc-url  { font-size: .6rem; color: var(--gray400); font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Architecture steps ────────────────────────────────────────────────── */
+    .steps-section { max-width: 860px; margin: 0 auto; padding: 40px 24px 16px; }
+    .steps-header { text-align: center; margin-bottom: 28px; }
+    .steps-header h2 { font-size: 1.6rem; font-weight: 800; color: var(--navy); }
+    .steps-header p  { color: var(--gray600); margin-top: 8px; font-size: .95rem; }
+    .steps-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    @media (max-width: 700px) { .steps-grid { grid-template-columns: 1fr 1fr; } }
+    .step-card {
+      background: var(--white); border: 1px solid var(--gray100);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow-sm);
+      position: relative; overflow: hidden;
+    }
+    .step-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--blue), var(--blue2));
+    }
+    .step-num {
+      width: 32px; height: 32px; background: var(--blue-lt); border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'JetBrains Mono', monospace; font-size: .7rem; font-weight: 700;
+      color: var(--blue); margin-bottom: 10px;
+    }
+    .step-card h4 { font-size: .85rem; font-weight: 800; color: var(--navy); margin-bottom: 6px; }
+    .step-card p  { font-size: .75rem; color: var(--gray600); line-height: 1.5; }
+
+    /* ── Page header ───────────────────────────────────────────────────────── */
+    .page-header { margin-bottom: 32px; }
+    .page-header h2 { font-size: 1.55rem; font-weight: 800; color: var(--navy); letter-spacing: -.02em; }
+    .page-header p  { color: var(--gray600); margin-top: 8px; font-size: .9rem; }
+    .section-title {
+      font-size: .72rem; font-weight: 700; color: var(--gray600);
+      text-transform: uppercase; letter-spacing: .07em; margin-bottom: 14px;
+    }
+
+    /* ── Step indicator ────────────────────────────────────────────────────── */
+    .step-indicator { display: flex; align-items: center; margin-bottom: 32px; }
+    .si-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: .72rem; font-weight: 700; color: var(--gray400);
+      letter-spacing: .04em; text-transform: uppercase;
+    }
+    .si-item.active { color: var(--blue); }
+    .si-item.done   { color: var(--success); }
+    .si-num {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--gray100); color: var(--gray400);
+      border: 2px solid var(--gray200); flex-shrink: 0;
+    }
+    .si-item.active .si-num { background: var(--blue);    color: white; border-color: var(--blue); }
+    .si-item.done   .si-num { background: var(--success); color: white; border-color: var(--success); }
+    .si-line { flex: 1; height: 2px; background: var(--gray200); margin: 0 10px; }
+    .si-line.done { background: var(--success); }
+
+    /* ── Voter cards ───────────────────────────────────────────────────────── */
+    .voter-card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px; margin-top: 14px;
+    }
+    .voter-card {
+      background: var(--white); border: 1px solid var(--gray100);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow-sm);
+      position: relative; overflow: hidden;
+    }
+    .voter-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, var(--navy), var(--blue2));
+    }
+    .vc-name {
+      font-weight: 800; font-size: .9rem; color: var(--navy);
+      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .vc-avatar {
+      width: 26px; height: 26px; background: var(--blue-lt); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .7rem; font-weight: 800; color: var(--blue);
+    }
+    .vc-row  { margin-bottom: 8px; }
+    .vc-lbl  { font-size: .58rem; font-weight: 700; color: var(--gray400); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 2px; }
+    .vc-val  { font-family: 'JetBrains Mono', monospace; font-size: .82rem; color: var(--navy); font-weight: 600; letter-spacing: .1em; }
+    .vc-hash { font-family: 'JetBrains Mono', monospace; font-size: .58rem; color: var(--gray400); word-break: break-all; margin-top: 2px; }
+
+    /* ── Vote options ──────────────────────────────────────────────────────── */
+    .option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; }
+    .option-btn {
+      padding: 20px 14px;
+      background: var(--gray50); border: 2px solid var(--gray100);
+      border-radius: var(--radius-sm); cursor: pointer;
+      text-align: center;
+      font-family: 'Plus Jakarta Sans', sans-serif; font-size: .9rem; font-weight: 700;
+      color: var(--gray600); transition: all .15s; line-height: 1.3;
+    }
+    .option-btn:hover    { border-color: var(--blue);    color: var(--blue);  background: var(--blue-lt); }
+    .option-btn.selected { border-color: var(--blue);    color: var(--navy);  background: var(--blue-lt); box-shadow: 0 0 0 3px rgba(45,91,227,.12); }
+
+    /* ── Live bar ──────────────────────────────────────────────────────────── */
+    .live-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--white); border: 1px solid var(--gray100);
+      border-radius: var(--radius-sm); padding: 14px 18px;
+      margin-bottom: 16px; box-shadow: var(--shadow-sm);
+    }
+    .lb-label { font-size: .82rem; font-weight: 600; color: var(--gray600); display: flex; align-items: center; gap: 8px; }
+    .lb-count { font-family: 'JetBrains Mono', monospace; color: var(--navy); font-weight: 700; }
+
+    /* ── Results ───────────────────────────────────────────────────────────── */
+    .winner-banner {
+      background: linear-gradient(135deg, var(--navy), var(--blue));
+      border-radius: var(--radius); padding: 32px 28px;
+      text-align: center; margin-bottom: 20px; box-shadow: var(--shadow);
+    }
+    .winner-label {
+      font-size: .65rem; font-weight: 700; letter-spacing: .12em;
+      text-transform: uppercase; color: rgba(255,255,255,.6);
+      margin-bottom: 10px; font-family: 'JetBrains Mono', monospace;
+    }
+    .winner-name { font-size: 2rem; font-weight: 800; color: white; letter-spacing: -.02em; }
+    .winner-meta { color: rgba(255,255,255,.65); font-size: .8rem; margin-top: 8px; font-family: 'JetBrains Mono', monospace; }
+
+    .progress-wrap { margin-bottom: 14px; }
+    .progress-header { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: .875rem; }
+    .progress-name  { font-weight: 700; color: var(--navy); }
+    .progress-count { color: var(--gray600); font-family: 'JetBrains Mono', monospace; font-size: .75rem; }
+    .progress-bg    { height: 10px; background: var(--gray100); border-radius: 5px; overflow: hidden; }
+    .progress-bar   { height: 100%; background: var(--gray200); border-radius: 5px; transition: width 1.2s cubic-bezier(.4,0,.2,1); width: 0%; }
+    .progress-bar.winner { background: linear-gradient(90deg, var(--blue), var(--blue2)); }
+
+    /* ── Participation ─────────────────────────────────────────────────────── */
+    .participation-bar  { height: 8px; background: var(--gray100); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .participation-fill { height: 100%; background: linear-gradient(90deg, var(--blue), var(--blue2)); border-radius: 4px; transition: width .6s cubic-bezier(.4,0,.2,1); width: 0%; }
+
+    /* ── Crypto trace ──────────────────────────────────────────────────────── */
+    .crypto-trace {
+      background: var(--navy); border-radius: var(--radius-sm);
+      font-family: 'JetBrains Mono', monospace; font-size: .68rem;
+      line-height: 2; padding: 18px; overflow-x: auto;
+      color: rgba(255,255,255,.5);
+    }
+    .ct-val { color: #7dd3fc; }
+    .ct-ok  { color: #6ee7b7; }
+
+    /* ── Print ─────────────────────────────────────────────────────────────── */
+    @media print {
+      nav, .no-print { display: none !important; }
+      body { background: white; }
+      .voter-card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
+      .voter-card::before { display: none; }
+      .voter-card-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PAGE 0 : ACCUEIL
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <nav>
+    <a class="nav-logo" onclick="goHome()">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+          <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+        </svg>
+      </div>
+      <span class="logo-text">Vote<span>Secure</span></span>
+    </a>
+    <div class="nav-right no-print">
+      <button class="btn btn-ghost" onclick="showPage('page-services')">🖥 Services</button>
+    </div>
+  </nav>
+
+  <div class="hero-wrap">
+    <div class="hero-inner">
+      <div class="hero-pill">◈ RSA · Signatures aveugles · TTH · Système distribué</div>
+      <h1>Vote électronique<br><em>cryptographique</em></h1>
+      <p>5 entités indépendantes sur 5 machines — commissaire, administrateur, anonymiseur, décompteur, site web.</p>
+      <div class="hero-cta">
+        <button class="btn-hero-primary" onclick="showPage('page-host-create')">🗳 Organiser un scrutin</button>
+        <button class="btn-hero-outline" onclick="showPage('page-voter-vote')">🗳 Voter →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="services-bar no-print">
+    <div class="section-title">État des services</div>
+    <div class="services-grid">
+      <div class="svc-card"><span class="dot dot-gray"></span><div class="svc-info"><div class="svc-name">Commissaire</div><div class="svc-url">:5001</div></div></div>
+      <div class="svc-card"><span class="dot dot-gray"></span><div class="svc-info"><div class="svc-name">Administrateur</div><div class="svc-url">:5002</div></div></div>
+      <div class="svc-card"><span class="dot dot-gray"></span><div class="svc-info"><div class="svc-name">Anonymiseur</div><div class="svc-url">:5003</div></div></div>
+      <div class="svc-card"><span class="dot dot-gray"></span><div class="svc-info"><div class="svc-name">Décompteur</div><div class="svc-url">:5004</div></div></div>
+    </div>
+  </div>
+
+  <div class="steps-section">
+    <div class="steps-header">
+      <h2>Architecture distribuée</h2>
+      <p>5 entités sur 5 machines — chaque entité ne voit que ce qu'elle doit voir</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card"><div class="step-num">:5001</div><h4>Commissaire</h4><p>Inscrit les électeurs, valide N1, vérifie tth(N2).</p></div>
+      <div class="step-card"><div class="step-num">:5002</div><h4>Administrateur</h4><p>Génère les clés RSA, signe à l'aveugle les bulletins.</p></div>
+      <div class="step-card"><div class="step-num">:5003</div><h4>Anonymiseur</h4><p>Casse le lien N1↔bulletin. Transmet sans identité.</p></div>
+      <div class="step-card"><div class="step-num">:5004</div><h4>Décompteur</h4><p>Déchiffre, vérifie, comptabilise les votes.</p></div>
+      <div class="step-card"><div class="step-num">:5000</div><h4>Site Web</h4><p>Interface électeur. Crypto entièrement côté navigateur.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PAGE SERVICES
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-services">
+  <nav>
+    <a class="nav-logo" onclick="goHome()">
+      <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+      <span class="logo-text">Vote<span>Secure</span></span>
+    </a>
+    <div class="nav-right"><button class="btn btn-ghost" onclick="goHome()">← Retour</button></div>
+  </nav>
+  <div class="container-wide">
+    <div class="page-header">
+      <h2>Configuration des services</h2>
+      <p>Initialisez les clés RSA avant d'ouvrir un scrutin.</p>
+    </div>
+    <div class="card">
+      <div class="section-title">Initialisation rapide</div>
+      <p class="text-sm text-muted mb-16">Lance la génération des clés RSA sur l'administrateur et le décompteur. À faire avant d'ouvrir un scrutin.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-navy" onclick="initAllKeys()">⚙ Initialiser toutes les clés RSA</button>
+        <button class="btn btn-danger" onclick="resetAll()">↺ Réinitialiser tout</button>
+      </div>
+      <div id="init-alert" style="margin-top:14px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PAGE 1 : CRÉER UN SCRUTIN
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-host-create">
+  <nav>
+    <a class="nav-logo" onclick="goHome()">
+      <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+      <span class="logo-text">Vote<span>Secure</span></span>
+    </a>
+    <div class="nav-right"><button class="btn btn-ghost" onclick="goHome()">← Retour</button></div>
+  </nav>
+  <div class="container">
+    <div class="page-header">
+      <h2>Créer un scrutin</h2>
+      <p>Configure le commissaire, génère les clés RSA et inscrit les électeurs.</p>
+    </div>
+    <div class="card card-elevated">
+      <div class="field">
+        <label>Titre / Question du vote</label>
+        <input type="text" id="host-title" placeholder="ex : Meilleur projet de l'année" maxlength="80">
+      </div>
+      <div class="field">
+        <label>Candidats / Options <span style="text-transform:none;font-weight:400;color:var(--gray400)">(un par ligne, minimum 2)</span></label>
+        <textarea id="host-options" placeholder="Candidat A&#10;Candidat B&#10;Candidat C"></textarea>
+      </div>
+      <hr>
+      <div class="field">
+        <label>Électeurs <span style="text-transform:none;font-weight:400;color:var(--gray400)">(un nom par ligne)</span></label>
+        <textarea id="host-voters" placeholder="Ariane Dupont&#10;Mohammed Aït&#10;Yasmine Benali"></textarea>
+      </div>
+      <div id="create-alert"></div>
+      <button class="btn btn-navy btn-full btn-lg" onclick="createSession()" id="btn-create">
+        Lancer le scrutin →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PAGE 2 : DASHBOARD ORGANISATEUR
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-host-dashboard">
+  <nav>
+    <a class="nav-logo" onclick="goHome()">
+      <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+      <span class="logo-text">Vote<span>Secure</span></span>
+    </a>
+    <div class="nav-right no-print">
+      <span class="flex-center gap-8 text-sm text-muted">
+        <span class="dot dot-orange" id="dash-dot"></span>
+        <span id="dash-status">Inscription</span>
+      </span>
+      <button class="btn btn-ghost" onclick="refreshDashboard()">↻ Rafraîchir</button>
+      <button class="btn btn-ghost" onclick="window.print()">⎙ Imprimer</button>
+    </div>
+  </nav>
+  <div class="container-wide">
+    <div class="live-bar">
+      <span class="lb-label"><span class="dot dot-blue"></span>Bulletins reçus</span>
+      <span class="lb-count"><span id="dash-voted">0</span> / <span id="dash-total">0</span></span>
+    </div>
+    <div class="grid-2">
+      <!-- Left column: voter cards -->
+      <div>
+        <div class="flex-between mb-16">
+          <div class="section-title">Cartes électeurs</div>
+          <span class="badge badge-blue" id="cards-count-badge">0</span>
+        </div>
+        <p class="text-sm text-muted mb-16">Remettez chaque carte à son électeur. <strong>N1</strong> pour s'identifier, <strong>N2</strong> pour signer.</p>
+        <div class="voter-card-grid" id="cards-grid"></div>
+      </div>
+      <!-- Right column: controls -->
+      <div>
+        <div class="card">
+          <div class="section-title" style="margin-bottom:16px">Contrôles</div>
+          <div class="flex-center gap-8" style="margin-bottom:18px;">
+            <span class="dot" id="ctrl-dot" style="background:var(--warn)"></span>
+            <span style="font-weight:700;font-size:.9rem;color:var(--navy);" id="ctrl-phase">Inscription</span>
+          </div>
+          <button class="btn btn-success btn-full" id="btn-open" onclick="openVoting()">▶ Ouvrir le vote</button>
+          <div style="margin-top:10px;">
+            <button class="btn btn-danger btn-full" id="btn-close" onclick="closeVoting()" disabled>⏹ Clôturer &amp; dépouiller</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title" style="margin-bottom:12px">Participation</div>
+          <div id="vote-progress-area"><p class="text-sm text-muted">En attente...</p></div>
+        </div>
+        <div class="card no-print">
+          <div class="section-title" style="margin-bottom:12px">Journal d'audit</div>
+          <div id="audit-log-area" style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--gray600);line-height:1.9;max-height:160px;overflow-y:auto;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PAGE 3 : VOTER
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-voter-vote">
+  <nav>
+    <a class="nav-logo" onclick="goHome()">
+      <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+      <span class="logo-text">Vote<span>Secure</span></span>
+    </a>
+    <div class="nav-right"><button class="btn btn-ghost" onclick="goHome()">← Accueil</button></div>
+  </nav>
+  <div class="container">
+    <!-- Load area: shown before session is loaded -->
+    <div id="voter-load-area">
+      <div class="card card-elevated">
+        <div class="section-title mb-8">Rejoindre le scrutin</div>
+        <p class="text-sm text-muted mb-16">Chargez les paramètres du scrutin actif depuis le commissaire.</p>
+        <button class="btn btn-primary btn-full" onclick="loadVoterSession()">🔄 Charger le scrutin actif</button>
+        <div id="voter-load-alert" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- Main voting flow: shown after session is loaded -->
+    <div id="voter-main-area" style="display:none">
+      <div class="step-indicator no-print">
+        <div class="si-item active" id="vstep-1"><div class="si-num">1</div><span>Identification</span></div>
+        <div class="si-line" id="vline-1"></div>
+        <div class="si-item" id="vstep-2"><div class="si-num">2</div><span>Vote</span></div>
+        <div class="si-line" id="vline-2"></div>
+        <div class="si-item" id="vstep-3"><div class="si-num">3</div><span>Confirmation</span></div>
+      </div>
+      <div id="vote-title-display" style="font-size:1.2rem;font-weight:800;color:var(--navy);margin-bottom:24px;"></div>
+
+      <!-- Step 1: N1 identification -->
+      <div id="vstep-panel-1">
+        <div class="card card-elevated">
+          <div class="section-title mb-8">Code d'identification N1</div>
+          <p class="text-sm text-muted mb-16">Entrez le code N1 figurant sur votre carte électeur.</p>
+          <div class="field">
+            <label>Code N1</label>
+            <input type="text" id="vote-n1" class="mono" placeholder="XXXX XXXX XXXX" maxlength="14" oninput="formatCode(this)">
+          </div>
+          <div id="v-alert-1"></div>
+          <button class="btn btn-primary btn-full" onclick="verifyN1()">Vérifier mon identité →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: choose candidate + N2 -->
+      <div id="vstep-panel-2" style="display:none">
+        <div class="alert alert-success mb-16">
+          <div class="alert-icon">✓</div>
+          <span>Votre droit de vote est confirmé.</span>
+        </div>
+        <div class="card card-elevated">
+          <div class="section-title mb-12">Votre choix</div>
+          <div class="option-grid" id="vote-options-grid"></div>
+        </div>
+        <div class="card card-elevated">
+          <div class="section-title mb-8">Code d'authentification N2</div>
+          <p class="text-sm text-muted mb-16">Ce code n'est jamais transmis en clair — il est haché côté navigateur.</p>
+          <div class="field">
+            <label>Code N2</label>
+            <input type="text" id="vote-n2" class="mono" placeholder="XXXX XXXX XXXX" maxlength="14" oninput="formatCode(this)">
+          </div>
+          <div id="v-alert-2"></div>
+          <button class="btn btn-navy btn-full btn-lg" id="btn-vote" onclick="submitVote()">🔏 Signer &amp; soumettre mon bulletin</button>
+        </div>
+      </div>
+
+      <!-- Step 3: confirmation -->
+      <div id="vstep-panel-3" style="display:none">
+        <div style="text-align:center;padding:28px 0 20px">
+          <div style="width:64px;height:64px;background:var(--success-lt);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 16px">✅</div>
+          <h2 style="color:var(--navy)">Bulletin enregistré</h2>
+          <p class="text-muted" style="margin-top:8px">Votre vote a été signé à l'aveugle, chiffré et transmis à l'anonymiseur.</p>
+          <div id="receipt-display" style="margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--gray400);"></div>
+        </div>
+        <div class="card no-print">
+          <div class="flex-between mb-8">
+            <div class="section-title">Trace cryptographique</div>
+            <button class="btn btn-ghost" style="font-size:.72rem;padding:3px 10px" onclick="toggleTrace()">Afficher / Masquer</button>
+          </div>
+          <div class="crypto-trace" id="vote-trace" style="display:none"></div>
+        </div>
+        <div class="card" style="text-align:center">
+          <p class="text-sm text-muted" style="margin-bottom:14px">
+            Le scrutin est toujours en cours. Rafraîchissez pour voir l'avancement ou attendez que l'organisateur clôture le vote.
+          </p>
+          <button class="btn btn-primary" onclick="checkVoterResults()">↻ Vérifier les résultats</button>
+          <div id="voter-result-area" style="margin-top:16px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════
+     PAGE RÉSULTATS
+     ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page" id="page-results">
+  <nav>
+    <a class="nav-logo" onclick="goHome()">
+      <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+      <span class="logo-text">Vote<span>Secure</span></span>
+    </a>
+    <div class="nav-right"><button class="btn btn-ghost" onclick="goHome()">← Accueil</button></div>
+  </nav>
+  <div class="container">
+    <div id="results-content"></div>
+  </div>
+</div>
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATE
+   ══════════════════════════════════════════════════════════════════════════════ */
+const S = {
+  admin_e: null, admin_N: null,
+  counter_e: null, counter_N: null,
+  verifiedN1: null,
+  selectedOption: null,
+  selectedIndex: null,
+  voterCards: [],
+};
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CRYPTO HELPERS
+   ══════════════════════════════════════════════════════════════════════════════ */
+function modPow(base, exp, mod) {
+  [base, exp, mod] = [BigInt(base), BigInt(exp), BigInt(mod)];
+  let result = 1n;
+  base %= mod;
+  while (exp > 0n) {
+    if (exp & 1n) result = (result * base) % mod;
+    exp >>= 1n;
+    base = (base * base) % mod;
+  }
+  return result;
+}
+
+function gcd(a, b) {
+  [a, b] = [BigInt(a), BigInt(b)];
+  while (b !== 0n) [a, b] = [b, a % b];
+  return a < 0n ? -a : a;
+}
+
+function modInverse(a, m) {
+  [a, m] = [BigInt(a), BigInt(m)];
+  let [oldR, r] = [a, m];
+  let [oldS, s] = [1n, 0n];
+
+  while (r !== 0n) {
+    const q = oldR / r;
+    [oldR, r] = [r, oldR - q * r];
+    [oldS, s] = [s, oldS - q * s];
+  }
+
+  if (oldR !== 1n) throw new Error('Inverse impossible');
+  return ((oldS % m) + m) % m;
+}
+
+function randomBigIntBelow(maxExclusive) {
+  const max = BigInt(maxExclusive);
+  if (max <= 2n) return 1n;
+
+  const bits = max.toString(2).length;
+  const bytes = Math.ceil(bits / 8);
+
+  while (true) {
+    const arr = new Uint8Array(bytes);
+    crypto.getRandomValues(arr);
+
+    let x = 0n;
+    for (const b of arr) x = (x << 8n) | BigInt(b);
+
+    const extraBits = bytes * 8 - bits;
+    if (extraBits > 0) x &= (1n << BigInt(bits)) - 1n;
+
+    if (x > 1n && x < max) return x;
+  }
+}
+
+function randomCoprime(N) {
+  const n = BigInt(N);
+  if (n <= 3n) return 2n;
+  while (true) {
+    const k = randomBigIntBelow(n);
+    if (k > 1n && gcd(k, n) === 1n) return k;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   UI HELPERS
+   ══════════════════════════════════════════════════════════════════════════════ */
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById(id);
+  if (page) page.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  showPage('page-home');
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function alertMsg(id, msg, type = 'info') {
+  const icons = { success: '✓', error: '✗', info: 'i', warning: '!' };
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = `<div class="alert alert-${type}"><div class="alert-icon">${icons[type] || 'i'}</div><span>${esc(msg)}</span></div>`;
+}
+
+function clearAlert(id) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = '';
+}
+
+function formatCode(el) {
+  let v = el.value.replace(/\s/g, '').toUpperCase();
+  let out = '';
+  for (let i = 0; i < v.length && i < 12; i++) {
+    if (i && i % 4 === 0) out += ' ';
+    out += v[i];
+  }
+  el.value = out;
+}
+
+function toggleTrace() {
+  const el = document.getElementById('vote-trace');
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, options);
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    const message = (data && (data.error || data.message)) || `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+  return data;
+}
+
+function setButtonBusy(btn, text) {
+  if (!btn) return;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> ${esc(text)}`;
+}
+
+function setButtonReady(btn, text) {
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = text;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SERVICES PAGE
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function initAllKeys() {
+  const btn = document.querySelector('[onclick="initAllKeys()"]');
+  clearAlert('init-alert');
+
+  try {
+    setButtonBusy(btn, 'Génération…');
+    const [d1, d2] = await Promise.all([
+      fetchJSON('/api/administrator/generate_keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bits: 2048 }),
+      }),
+      fetchJSON('/api/counter/generate_keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bits: 2048 }),
+      }),
+    ]);
+
+    if (d1.ok && d2.ok) {
+      alertMsg('init-alert', 'Clés RSA générées avec succès sur l\'administrateur et le décompteur.', 'success');
+    } else {
+      alertMsg('init-alert', 'La génération des clés a échoué.', 'error');
+    }
+  } catch (e) {
+    alertMsg('init-alert', `Erreur réseau : ${e.message}`, 'error');
+  } finally {
+    setButtonReady(btn, '⚙ Initialiser toutes les clés RSA');
+  }
+}
+
+async function resetAll() {
+  if (!confirm('Réinitialiser tous les services ? Cette action efface toutes les données.')) return;
+  try {
+    await fetchJSON('/api/reset_all', { method: 'POST' });
+    alertMsg('init-alert', 'Tous les services ont été réinitialisés.', 'info');
+  } catch (e) {
+    alertMsg('init-alert', `Erreur : ${e.message}`, 'error');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CREATE SESSION
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function createSession() {
+  const title = document.getElementById('host-title').value.trim();
+  const optsRaw = document.getElementById('host-options').value.trim();
+  const votersRaw = document.getElementById('host-voters').value.trim();
+
+  const options = optsRaw.split('\n').map(s => s.trim()).filter(Boolean);
+  const voters = votersRaw.split('\n').map(s => s.trim()).filter(Boolean);
+
+  if (!title) { alertMsg('create-alert', 'Titre requis', 'error'); return; }
+  if (options.length < 2) { alertMsg('create-alert', 'Au moins 2 options requises', 'error'); return; }
+  if (voters.length < 1) { alertMsg('create-alert', 'Au moins un électeur requis', 'error'); return; }
+
+  const btn = document.getElementById('btn-create');
+  clearAlert('create-alert');
+
+  try {
+    setButtonBusy(btn, 'Configuration…');
+
+    const r1 = await fetchJSON('/api/commissioner/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, candidates: options }),
+    });
+    if (r1.error) throw new Error(`Commissaire : ${r1.error}`);
+
+    setButtonBusy(btn, 'Génération des clés…');
+    const [d2, d3, cp] = await Promise.all([
+      fetchJSON('/api/administrator/generate_keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bits: 2048 }),
+      }),
+      fetchJSON('/api/counter/generate_keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bits: 2048 }),
+      }),
+      fetchJSON('/api/crypto_params'),
+    ]);
+
+    if (!d2.ok) throw new Error('Administrateur : clés non générées');
+    if (!d3.ok) throw new Error('Décompteur : clés non générées');
+
+    if (!cp.admin || !cp.counter) throw new Error('Paramètres crypto indisponibles');
+    S.admin_e = cp.admin.e;
+    S.admin_N = cp.admin.N;
+    S.counter_e = cp.counter.e;
+    S.counter_N = cp.counter.N;
+
+    setButtonBusy(btn, 'Inscription des électeurs…');
+    const cards = [];
+    for (const name of voters) {
+      const cd = await fetchJSON('/api/commissioner/register_voter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (cd.ok) {
+        cards.push({
+          name,
+          N1_fmt: cd.N1_formatted,
+          N2_fmt: cd.N2_formatted,
+          tth_N2: cd.tth_N2,
+        });
+      }
+    }
+
+    S.voterCards = cards;
+    buildDashboard(cards, voters.length);
+    showPage('page-host-dashboard');
+  } catch (e) {
+    alertMsg('create-alert', `Erreur : ${e.message}`, 'error');
+  } finally {
+    setButtonReady(btn, 'Lancer le scrutin →');
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   DASHBOARD
+   ══════════════════════════════════════════════════════════════════════════════ */
+function buildDashboard(cards, total) {
+  document.getElementById('dash-total').textContent = String(total);
+  document.getElementById('dash-voted').textContent = '0';
+  document.getElementById('ctrl-phase').textContent = 'Inscription';
+  document.getElementById('dash-status').textContent = 'Vote pas encore ouvert';
+  document.getElementById('cards-count-badge').textContent = `${total} carte${total > 1 ? 's' : ''}`;
+
+  const grid = document.getElementById('cards-grid');
+  grid.innerHTML = '';
+
+  cards.forEach(card => {
+    const el = document.createElement('div');
+    el.className = 'voter-card';
+    const initials = card.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    el.innerHTML = `
+      <div class="vc-name"><div class="vc-avatar">${esc(initials)}</div>${esc(card.name)}</div>
+      <div class="vc-row"><div class="vc-lbl">N1 — Identification</div><div class="vc-val">${esc(card.N1_fmt)}</div></div>
+      <div class="vc-row"><div class="vc-lbl">N2 — Signature</div><div class="vc-val">${esc(card.N2_fmt)}</div></div>
+      <div class="vc-row"><div class="vc-lbl">TTH(N2)</div><div class="vc-hash">${esc(card.tth_N2)}</div></div>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+async function refreshDashboard() {
+  try {
+    const [commData, counterData] = await Promise.all([
+      fetchJSON('/api/commissioner/state'),
+      fetchJSON('/api/counter/state'),
+    ]);
+
+    const voted = commData.voted_count || 0;
+    const total = commData.voter_count || 0;
+
+    document.getElementById('dash-voted').textContent = String(voted);
+    document.getElementById('dash-total').textContent = String(total);
+
+    if (commData.audit) updateAuditLog(commData.audit);
+    if (commData.phase === 'voting' || commData.phase === 'counting') updateParticipation(voted, total);
+
+    if (counterData.phase === 'done') {
+      document.getElementById('ctrl-phase').textContent = 'Terminé';
+      document.getElementById('ctrl-dot').style.background = 'var(--gray400)';
+      document.getElementById('btn-close').disabled = true;
+      showResultsInDash({
+        results: counterData.results || {},
+        valid_count: Object.values(counterData.results || {}).reduce((a, b) => a + b, 0),
+      });
+    }
+  } catch {
+    // Silencieux
+  }
+}
+
+async function openVoting() {
+  try {
+    const d = await fetchJSON('/api/commissioner/open_voting', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+
+    if (d.error) throw new Error(d.error);
+
+    document.getElementById('btn-open').disabled = true;
+    document.getElementById('btn-close').disabled = false;
+    document.getElementById('ctrl-phase').textContent = 'Vote ouvert';
+    document.getElementById('ctrl-dot').style.background = 'var(--success)';
+    document.getElementById('dash-status').textContent = 'Vote en cours';
+    document.getElementById('dash-dot').className = 'dot dot-green';
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function closeVoting() {
+  if (!confirm('Clôturer le scrutin et lancer le dépouillement ?')) return;
+  try {
+    await fetchJSON('/api/commissioner/close_voting', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+
+    const data = await fetchJSON('/api/counter/count_votes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('ctrl-phase').textContent = 'Terminé';
+    document.getElementById('ctrl-dot').style.background = 'var(--gray400)';
+    document.getElementById('btn-close').disabled = true;
+    showResultsInDash(data);
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+function showResultsInDash(data) {
+  const total = data.valid_count || Object.values(data.results || {}).reduce((a, b) => a + b, 0);
+  document.getElementById('vote-progress-area').innerHTML = buildResultsHTML(data.results || {}, total);
+}
+
+function updateAuditLog(logs) {
+  const el = document.getElementById('audit-log-area');
+  if (!el || !Array.isArray(logs)) return;
+  el.innerHTML = logs.map(l => `<span style="color:var(--gray400)">${esc(l.time)}</span> ${esc(l.msg)}`).join('<br>');
+  el.scrollTop = el.scrollHeight;
+}
+
+function updateParticipation(voted, total) {
+  const pct = total > 0 ? Math.round((voted / total) * 100) : 0;
+  document.getElementById('vote-progress-area').innerHTML = `
+    <div class="flex-between text-sm mb-8">
+      <span class="text-muted">Participation</span>
+      <strong style="color:var(--navy)">${voted} / ${total} — ${pct}%</strong>
+    </div>
+    <div class="participation-bar"><div class="participation-fill" style="width:${pct}%"></div></div>
+  `;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   VOTER FLOW
+   ══════════════════════════════════════════════════════════════════════════════ */
+async function loadVoterSession() {
+  clearAlert('voter-load-alert');
+  try {
+    const data = await fetchJSON('/api/commissioner/state');
+
+    if (data.phase === 'setup') {
+      alertMsg('voter-load-alert', 'Aucun scrutin actif.', 'warning');
+      return;
+    }
+    if (data.phase === 'registration') {
+      alertMsg('voter-load-alert', 'Le vote n\'est pas encore ouvert.', 'warning');
+      return;
+    }
+    if (data.phase === 'done') {
+      const cd = await fetchJSON('/api/counter/state');
+      showResultsPage(cd);
+      return;
+    }
+
+    const cp = await fetchJSON('/api/crypto_params');
+    if (!cp.admin || !cp.counter) {
+      alertMsg('voter-load-alert', 'Clés RSA non disponibles. Initialisez l\'administrateur et le décompteur.', 'error');
+      return;
+    }
+
+    S.admin_e = cp.admin.e;
+    S.admin_N = cp.admin.N;
+    S.counter_e = cp.counter.e;
+    S.counter_N = cp.counter.N;
+
+    document.getElementById('vote-title-display').textContent = data.election_title || 'Scrutin actif';
+
+    const grid = document.getElementById('vote-options-grid');
+    grid.innerHTML = '';
+    (data.candidates || []).forEach((opt, idx) => {
+      const btn = document.createElement('div');
+      btn.className = 'option-btn';
+      btn.textContent = opt;
+      btn.onclick = () => {
+        document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        S.selectedOption = opt;
+        S.selectedIndex = idx;
+      };
+      grid.appendChild(btn);
+    });
+
+    document.getElementById('voter-load-area').style.display = 'none';
+    document.getElementById('voter-main-area').style.display = 'block';
+  } catch (e) {
+    alertMsg('voter-load-alert', `Erreur : ${e.message}`, 'error');
+  }
+}
+
+async function verifyN1() {
+  const N1 = document.getElementById('vote-n1').value.replace(/\s/g, '').toUpperCase();
+  if (N1.length !== 12) {
+    alertMsg('v-alert-1', 'Le code N1 doit faire 12 caractères', 'error');
+    return;
+  }
+
+  clearAlert('v-alert-1');
+
+  try {
+    const d = await fetchJSON('/api/commissioner/state');
+    if (d.phase !== 'voting') {
+      alertMsg('v-alert-1', 'Le scrutin n\'est pas ouvert', 'error');
+      return;
+    }
+
+    try {
+      await fetchJSON('/api/commissioner/validate_N1_check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ N1 }),
+      });
+    } catch {
+      // Endpoint facultatif
+    }
+
+    S.verifiedN1 = N1;
+    document.getElementById('vstep-panel-1').style.display = 'none';
+    document.getElementById('vstep-panel-2').style.display = 'block';
+    document.getElementById('vstep-1').className = 'si-item done';
+    document.getElementById('vline-1').className = 'si-line done';
+    document.getElementById('vstep-2').className = 'si-item active';
+  } catch (e) {
+    alertMsg('v-alert-1', `Erreur : ${e.message}`, 'error');
+  }
+}
+
+async function submitVote() {
+  const N2 = document.getElementById('vote-n2').value.replace(/\s/g, '').toUpperCase();
+  const choice = S.selectedOption;
+  const choiceIdx = S.selectedIndex;
+  const N1 = S.verifiedN1;
+
+  if (choice == null || choiceIdx == null) {
+    alertMsg('v-alert-2', 'Sélectionnez un candidat', 'error');
+    return;
+  }
+  if (N2.length !== 12) {
+    alertMsg('v-alert-2', 'Le code N2 doit faire 12 caractères', 'error');
+    return;
+  }
+  if (!S.admin_e || !S.admin_N || !S.counter_e || !S.counter_N) {
+    alertMsg('v-alert-2', 'Paramètres crypto manquants. Rechargez le scrutin.', 'error');
+    return;
+  }
+  if (!N1) {
+    alertMsg('v-alert-2', 'Commencez par vérifier N1', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-vote');
+  clearAlert('v-alert-2');
+
+  try {
+    setButtonBusy(btn, 'Préparation…');
+
+    const admin_e = BigInt(S.admin_e);
+    const admin_N = BigInt(S.admin_N);
+    const counter_e = BigInt(S.counter_e);
+    const counter_N = BigInt(S.counter_N);
+
+    const ballotStr = `${choiceIdx}|${N2}`;
+    const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ballotStr));
+    let h = 0n;
+    for (const b of new Uint8Array(hashBuf)) h = (h << 8n) | BigInt(b);
+    const m_int = (h % (admin_N - 1n)) + 1n;
+
+    const k = randomCoprime(admin_N);
+    const k_e = modPow(k, admin_e, admin_N);
+    const m_masked = (m_int * k_e) % admin_N;
+
+    setButtonBusy(btn, 'Signature aveugle…');
+    const blindData = await fetchJSON('/api/administrator/sign_blind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ N1, m_masked: m_masked.toString() }),
+    });
+
+    if (blindData.error) throw new Error(blindData.error);
+
+    const s_blind = BigInt(blindData.s_blind);
+    const k_inv = modInverse(k, admin_N);
+    const signature = (s_blind * k_inv) % admin_N;
+
+    const verify_ok = modPow(signature, admin_e, admin_N) === (m_int % admin_N);
+    if (!verify_ok) {
+      throw new Error('Erreur de vérification de la signature — recommencez');
+    }
+
+    // Évite la valeur 0, qui est un cas faible pour RSA.
+    const encodedChoice = BigInt(choiceIdx + 1);
+    const encrypted = modPow(encodedChoice, counter_e, counter_N);
+
+    setButtonBusy(btn, 'Transmission…');
+    const subData = await fetchJSON('/api/vote/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        N1,
+        encrypted_ballot: encrypted.toString(),
+        choice_index: choiceIdx,
+        signature: signature.toString(),
+        m_int: m_int.toString(),
+      }),
+    });
+
+    if (subData.error) throw new Error(subData.error);
+
+    document.getElementById('vstep-panel-2').style.display = 'none';
+    document.getElementById('vstep-panel-3').style.display = 'block';
+    document.getElementById('vstep-2').className = 'si-item done';
+    document.getElementById('vline-2').className = 'si-line done';
+    document.getElementById('vstep-3').className = 'si-item active';
+
+    if (subData.receipt_id) {
+      document.getElementById('receipt-display').textContent = 'Reçu : ' + subData.receipt_id;
+    }
+
+    document.getElementById('vote-trace').innerHTML = `
+      <span style="color:rgba(255,255,255,.35)">Candidat         </span>= <span class="ct-val">${esc(choice)} (index ${choiceIdx})</span><br>
+      <span style="color:rgba(255,255,255,.35)">m_int (hash)     </span>= <span class="ct-val">${m_int}</span><br>
+      <span style="color:rgba(255,255,255,.35)">k (aveugle)      </span>= <span class="ct-val">${k}</span><br>
+      <span style="color:rgba(255,255,255,.35)">m_masked         </span>= <span class="ct-val">${m_masked}</span><br>
+      <span style="color:rgba(255,255,255,.35)">s_blind          </span>= <span class="ct-val">${s_blind}</span><br>
+      <span style="color:rgba(255,255,255,.35)">signature        </span>= <span class="ct-val">${signature}</span><br>
+      <span style="color:rgba(255,255,255,.35)">E(vote)          </span>= <span class="ct-val">${encrypted}</span><br>
+      <span class="ct-${verify_ok ? 'ok' : 'val'}">◈ Vérif. s^e mod N = ${modPow(signature, admin_e, admin_N)} — ${verify_ok ? '✓ VALIDE' : '✗ ERREUR'}</span>
+    `;
+  } catch (e) {
+    alertMsg('v-alert-2', e.message, 'error');
+    setButtonReady(btn, '🔏 Signer & soumettre mon bulletin');
+  }
+}
+
+async function checkVoterResults() {
+  const el = document.getElementById('voter-result-area');
+  el.innerHTML = '<span class="spinner spinner-blue"></span>';
+  try {
+    const cd = await fetchJSON('/api/counter/state');
+    if (cd.phase === 'done') {
+      const total = Object.values(cd.results || {}).reduce((a, b) => a + b, 0);
+      el.innerHTML = buildResultsHTML(cd.results || {}, total);
+    } else {
+      el.innerHTML = '<p class="text-sm text-muted" style="margin-top:8px">Le scrutin n\'est pas encore clôturé. Réessayez dans quelques instants.</p>';
+    }
+  } catch {
+    el.innerHTML = '<p class="text-sm text-muted" style="margin-top:8px">Erreur réseau. Réessayez.</p>';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RESULTS
+   ══════════════════════════════════════════════════════════════════════════════ */
+function buildResultsHTML(results, totalValid) {
+  if (!results || !Object.keys(results).length) {
+    return '<p class="text-muted text-sm">Pas encore de résultats.</p>';
+  }
+
+  let winner = '';
+  let maxV = -1;
+
+  for (const [k, v] of Object.entries(results)) {
+    if (v > maxV) {
+      maxV = v;
+      winner = k;
+    }
+  }
+
+  let html = `
+    <div class="winner-banner">
+      <div class="winner-label">◈ Vainqueur du scrutin</div>
+      <div class="winner-name">${esc(winner)}</div>
+      <div class="winner-meta">${maxV} vote${maxV > 1 ? 's' : ''} · ${totalValid} total</div>
+    </div>
+    <div>
+  `;
+
+  Object.entries(results)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([opt, v]) => {
+      const pct = totalValid > 0 ? Math.round((v / totalValid) * 100) : 0;
+      html += `
+        <div class="progress-wrap">
+          <div class="progress-header">
+            <span class="progress-name">${esc(opt)}</span>
+            <span class="progress-count">${v} vote${v > 1 ? 's' : ''} — ${pct}%</span>
+          </div>
+          <div class="progress-bg">
+            <div class="progress-bar${opt === winner ? ' winner' : ''}" data-w="${pct}"></div>
+          </div>
+        </div>
+      `;
+    });
+
+  html += '</div>';
+
+  setTimeout(() => {
+    document.querySelectorAll('.progress-bar[data-w]').forEach(bar => {
+      bar.style.width = `${bar.dataset.w}%`;
+    });
+  }, 120);
+
+  return html;
+}
+
+function showResultsPage(data) {
+  const total = Object.values(data.results || {}).reduce((a, b) => a + b, 0);
+  document.getElementById('results-content').innerHTML = buildResultsHTML(data.results || {}, total);
+  showPage('page-results');
+}
+</script>
+</body>
+</html>
