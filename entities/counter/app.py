@@ -164,6 +164,7 @@ def count_votes():
         # ── Step 2: unpack → extract vote_index and N2 ────────────────────────
         try:
             vote_index, N2 = unpack_vote(packed)
+            log(f"Bulletin #{num} — vote_index={vote_index}, N2={N2!r}") 
         except ValueError as ex:
             log(f"Bulletin #{num} rejeté — décodage : {ex}")
             invalid_count += 1
@@ -183,6 +184,7 @@ def count_votes():
 
         # ── Step 4: hash N2 and verify it was registered with the commissioner ─
         computed_tth = tth(N2)
+        log(f"Bulletin #{num} — computed_tth={computed_tth}")  
         if not verify_tth_at_commissioner(computed_tth):
             log(f"Bulletin #{num} rejeté — tth(N2) non reconnu")
             invalid_count += 1

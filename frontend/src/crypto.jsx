@@ -55,12 +55,42 @@ function randomCoprime(N) {
 }
 
 export async function prepareBlindSignature(choiceIdx, N2, admin_e, admin_N) {
-  const ballotStr = `${choiceIdx}|${N2}`
-  const hashBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ballotStr))
-  let h = 0n
-  for (const b of new Uint8Array(hashBuf)) h = (h << 8n) | BigInt(b)
-  const m_int = (h % (admin_N - 1n)) + 1n
+  const ballotStr = `${choiceIdx}|${N2.toUpperCase()}`
+  const msgBytes = new TextEncoder().encode(ballotStr)
 
+  // Step 1: SHA-256 of the ballot string
+  const hashBuf = await crypto.subtle.digest('SHA-256', msgBytes)
+  const m_hash = new Uint8Array(hashBuf)  // 32 bytes
+
+  // Step 2: MGF1 seed = SHA-256(m_hash || 0x00)
+  const seedInput = new Uint8Array(m_hash.length + 1)
+  seedInput.set(m_hash)
+  seedInput[m_hash.length] = 0x00
+  const mgfBuf = await crypto.subtle.digest('SHA-256', seedInput)
+  const mgf_seed = new Uint8Array(mgfBuf)  // 32 bytes
+
+  // Step 3: db = m_hash(32) || mgf_seed(32) || 0xBC(1) = 65 bytes
+  const db = new Uint8Array(65)
+  db.set(m_hash, 0)
+  db.set(mgf_seed, 32)
+  db[64] = 0xbc
+
+  // Step 4: pad to modulus byte length
+  const emLen = Math.ceil(admin_N.toString(2).length / 8)
+  let padded
+  if (db.length < emLen) {
+    padded = new Uint8Array(emLen)
+    padded.set(db, emLen - db.length)
+  } else {
+    padded = db.slice(db.length - emLen)
+  }
+
+  // Step 5: convert to integer in [1, N-1]
+  let paddedInt = 0n
+  for (const b of padded) paddedInt = (paddedInt << 8n) | BigInt(b)
+  const m_int = (paddedInt % (admin_N - 1n)) + 1n
+
+  // Step 6: blind it
   const k = randomCoprime(admin_N)
   const k_e = modPow(k, admin_e, admin_N)
   const m_masked = (m_int * k_e) % admin_N

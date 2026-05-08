@@ -10,28 +10,42 @@ import time
 import platform
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIR = os.path.join(BASE, "frontend")
 sys.path.insert(0, BASE)
 
 PORT = int(os.environ.get("PORT", 5000))
 IS_WINDOWS = platform.system() == "Windows"
 
-# Set inter-service URLs BEFORE importing or launching
 os.environ.setdefault("COMMISSIONER_URL",  "http://localhost:5001")
 os.environ.setdefault("ADMINISTRATOR_URL", "http://localhost:5002")
 os.environ.setdefault("ANONYMISER_URL",    "http://localhost:5003")
-os.environ.setdefault("COUNTER_URL",      "http://localhost:5004")
+os.environ.setdefault("COUNTER_URL",       "http://localhost:5004")
 
 procs = []
 
-# Launch each internal service
+# ── Step 1: Build React app ────────────────────────────────────────────────────
+def build_react():
+    print("[server] Building React frontend...")
+    result = subprocess.run(
+        ["npm", "run", "build"],
+        cwd=FRONTEND_DIR,
+        shell=IS_WINDOWS,
+    )
+    if result.returncode != 0:
+        print("[server] WARNING: React build failed — frontend may be stale or missing")
+    else:
+        print("[server] React build complete")
+
+build_react()
+
+# ── Step 2: Launch Flask backend services ─────────────────────────────────────
 for name, module, port in [
-    ("commissioner",  "entities.commissioner.app:app",   5001),
-    ("administrator", "entities.administrator.app:app",  5002),
-    ("anonymiser",    "entities.anonymiser.app:app",     5003),
-    ("counter",       "entities.counter.app:app",        5004),
+    ("commissioner",  "entities.commissioner.app:app",  5001),
+    ("administrator", "entities.administrator.app:app", 5002),
+    ("anonymiser",    "entities.anonymiser.app:app",    5003),
+    ("counter",       "entities.counter.app:app",       5004),
 ]:
     if IS_WINDOWS:
-        # Windows: use Python subprocess to run Flask directly
         module_name, app_var = module.split(":")
         p = subprocess.Popen(
             [
@@ -44,7 +58,6 @@ for name, module, port in [
             env=os.environ.copy(),
         )
     else:
-        # Linux/Production: use gunicorn
         p = subprocess.Popen(
             [
                 sys.executable, "-m", "gunicorn",
@@ -57,22 +70,20 @@ for name, module, port in [
             cwd=BASE,
             env=os.environ.copy(),
         )
-    
+
     procs.append(p)
     print(f"[server] {name} → :{port} (PID {p.pid})")
 
-# Give internal services time to bind
 time.sleep(3)
 
-# Launch the website gateway
-print(f"[server] website → :{PORT}")
+# ── Step 3: Launch website + serve React build ─────────────────────────────────
+print(f"[server] website + frontend → :{PORT}")
+
 try:
     if IS_WINDOWS:
-        # Windows: use Flask dev server
         from website.app import app
         app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True, use_reloader=False)
     else:
-        # Linux/Production: use gunicorn
         subprocess.run(
             [
                 sys.executable, "-m", "gunicorn",

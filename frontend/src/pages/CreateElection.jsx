@@ -26,29 +26,69 @@ export default function CreateElection() {
   const [busy, setBusy] = useState(false)
   const fileInputRef = useRef(null)
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+ const handleFileUpload = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
 
-    setError(null)
-    try {
-      // Check file type
-      const fileName = file.name.toLowerCase()
-      if (!fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
-        setError('Veuillez sélectionner un fichier CSV ou TXT')
-        return
-      }
+  setError(null)
 
-      const content = await file.text()
-      setVoters(content)
-      setError(null)
-    } catch (err) {
-      setError(`Erreur lecture fichier: ${err.message}`)
+  try {
+    const fileName = file.name.toLowerCase()
+    if (!fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
+      setError('Veuillez sélectionner un fichier CSV ou TXT')
+      return
     }
 
-    // Reset input
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    const content = await file.text()
+    const lines = content.trim().split('\n')
+
+    const parsed = []
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      if (!line) continue
+
+      // split CSV (simple safe split)
+      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
+
+      // skip header (detect first row)
+      if (
+        i === 0 &&
+        (
+          cols[0]?.toLowerCase().includes('timestamp') ||
+          cols[0]?.toLowerCase().includes('horodateur') ||
+          cols[1]?.toLowerCase().includes('email')
+        )
+      ) {
+        continue
+      }
+
+      // FORMAT: timestamp, email, name
+      if (cols.length >= 3) {
+        const email = cols[1]
+        const name = cols[2]
+
+        if (email && name && email.includes('@')) {
+          parsed.push(`${name}, ${email}`)
+        }
+      }
+    }
+
+    if (parsed.length === 0) {
+      setError('Aucun électeur valide trouvé dans le fichier')
+      return
+    }
+
+    setVoters(parsed.join('\n'))
+    setError(null)
+
+  } catch (err) {
+    setError(`Erreur lecture fichier: ${err.message}`)
   }
+
+  // reset input
+  if (fileInputRef.current) fileInputRef.current.value = ''
+}
 
   const handleCreate = async () => {
     const opts = options.split('\n').map((s) => s.trim()).filter(Boolean)

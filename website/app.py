@@ -9,17 +9,20 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import requests
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory, abort
 from flask_cors import CORS
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
 
-
-COMMISSIONER_URL = os.environ.get("COMMISSIONER_URL", "http://localhost:5001")
+COMMISSIONER_URL  = os.environ.get("COMMISSIONER_URL",  "http://localhost:5001")
 ADMINISTRATOR_URL = os.environ.get("ADMINISTRATOR_URL", "http://localhost:5002")
-ANONYMISER_URL = os.environ.get("ANONYMISER_URL", "http://localhost:5003")
-COUNTER_URL = os.environ.get("COUNTER_URL", "http://localhost:5004")
+ANONYMISER_URL    = os.environ.get("ANONYMISER_URL",    "http://localhost:5003")
+COUNTER_URL       = os.environ.get("COUNTER_URL",       "http://localhost:5004")
+
+REACT_BUILD = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+)
 
 
 def proxy_get(url, timeout=30):
@@ -31,10 +34,8 @@ def proxy_get(url, timeout=30):
 
 
 def proxy_post(url, data=None, timeout=120, retries=1):
-
     payload = data or request.json
     last_ex = None
-
     for attempt in range(retries + 1):
         try:
             r = requests.post(url, json=payload, timeout=timeout)
@@ -46,7 +47,6 @@ def proxy_post(url, data=None, timeout=120, retries=1):
             continue
         except Exception as ex:
             return jsonify({"error": str(ex)}), 503
-
     return jsonify({"error": f"Timeout after {retries + 1} attempt(s): {last_ex}"}), 503
 
 
@@ -56,22 +56,15 @@ def health():
     return jsonify({"service": "website", "status": "ok"})
 
 
-# ── main page ────────────────────────────────────────────────────────────
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-# ── services ────────────────────────────────────────────────────
+# ── Services ───────────────────────────────────────────────────────────────────
 @app.route("/api/services")
 def services():
-    """Retourne les URLs et états de santé de tous les services."""
     results = {}
     for name, url in [
         ("commissioner", COMMISSIONER_URL),
         ("administrator", ADMINISTRATOR_URL),
-        ("anonymiser", ANONYMISER_URL),
-        ("counter", COUNTER_URL),
+        ("anonymiser",   ANONYMISER_URL),
+        ("counter",      COUNTER_URL),
     ]:
         try:
             r = requests.get(f"{url}/health", timeout=3)
@@ -81,84 +74,70 @@ def services():
     return jsonify(results)
 
 
-# ── Crypto public keys ─────────────────────────────────────────────────
+# ── Crypto public keys ─────────────────────────────────────────────────────────
 @app.route("/api/crypto_params")
 def crypto_params():
     params = {}
-
     try:
         r = requests.get(f"{ADMINISTRATOR_URL}/api/public_key", timeout=5)
         data = r.json()
-        params["admin"] = {
-            "e": str(data["e"]),
-            "N": str(data["N"]),
-        }
+        params["admin"] = {"e": str(data["e"]), "N": str(data["N"])}
     except Exception:
         params["admin"] = None
-
     try:
         r = requests.get(f"{COUNTER_URL}/api/public_key", timeout=5)
         data = r.json()
-        params["counter"] = {
-            "e": str(data["e"]),
-            "N": str(data["N"]),
-        }
+        params["counter"] = {"e": str(data["e"]), "N": str(data["N"])}
     except Exception:
         params["counter"] = None
-
     return jsonify(params)
 
 
-# ─────Commissioner────────────────────────────────────────────────────
+# ── Commissioner ───────────────────────────────────────────────────────────────
 @app.route("/api/commissioner/state")
 def commissioner_state():
     return proxy_get(f"{COMMISSIONER_URL}/api/state")
-
 
 @app.route("/api/commissioner/setup", methods=["POST"])
 def commissioner_setup():
     return proxy_post(f"{COMMISSIONER_URL}/api/setup")
 
-
 @app.route("/api/commissioner/register_voter", methods=["POST"])
 def commissioner_register():
     return proxy_post(f"{COMMISSIONER_URL}/api/register_voter")
-
 
 @app.route("/api/commissioner/open_voting", methods=["POST"])
 def commissioner_open():
     return proxy_post(f"{COMMISSIONER_URL}/api/open_voting")
 
-
 @app.route("/api/commissioner/close_voting", methods=["POST"])
 def commissioner_close():
     result = proxy_post(f"{COMMISSIONER_URL}/api/close_voting")
-
     try:
         requests.post(f"{ANONYMISER_URL}/api/forward_all_ballots", timeout=30)
     except Exception:
         pass
     return result
 
-
 @app.route("/api/commissioner/validate_N1_check", methods=["POST"])
 def commissioner_validate_n1():
     return proxy_post(f"{COMMISSIONER_URL}/api/validate_N1")
 
+@app.route("/api/commissioner/verify_tth_N2", methods=["POST"])
+def commissioner_verify_tth():
+    return proxy_post(f"{COMMISSIONER_URL}/api/verify_tth_N2")
 
 @app.route("/api/commissioner/bulk_register_voters", methods=["POST"])
 def commissioner_bulk_register():
     try:
-        # Forward the file directly to the commissioner service
         files = request.files
-        if 'file' not in files:
+        if "file" not in files:
             return jsonify({"error": "No file provided"}), 400
-        
-        file = files['file']
+        file = files["file"]
         response = requests.post(
             f"{COMMISSIONER_URL}/api/bulk_register_voters",
-            files={'file': (file.filename, file.stream, file.content_type)},
-            timeout=120
+            files={"file": (file.filename, file.stream, file.content_type)},
+            timeout=120,
         )
         return jsonify(response.json()), response.status_code
     except requests.exceptions.Timeout:
@@ -167,81 +146,89 @@ def commissioner_bulk_register():
         return jsonify({"error": str(ex)}), 503
 
 
-# ── Admin────────────────────────────────────────────────────
+# ── Administrator ──────────────────────────────────────────────────────────────
 @app.route("/api/administrator/state")
 def admin_state():
     return proxy_get(f"{ADMINISTRATOR_URL}/api/state")
 
-
 @app.route("/api/administrator/generate_keys", methods=["POST"])
 def admin_gen_keys():
     return proxy_post(f"{ADMINISTRATOR_URL}/api/generate_keys", timeout=60, retries=1)
-
 
 @app.route("/api/administrator/sign_blind", methods=["POST"])
 def admin_sign():
     return proxy_post(f"{ADMINISTRATOR_URL}/api/sign_blind")
 
 
-# ── counter ────────────────────────────────────────────────────────
+# ── Counter ────────────────────────────────────────────────────────────────────
 @app.route("/api/counter/state")
 def counter_state():
     return proxy_get(f"{COUNTER_URL}/api/state")
 
-
 @app.route("/api/counter/generate_keys", methods=["POST"])
 def counter_gen_keys():
     return proxy_post(f"{COUNTER_URL}/api/generate_keys", timeout=60, retries=1)
-
 
 @app.route("/api/counter/count_votes", methods=["POST"])
 def counter_count():
     return proxy_post(f"{COUNTER_URL}/api/count_votes", timeout=30)
 
 
-# ── forward ballots ────────────────────────────────────────────
+# ── Anonymiser ─────────────────────────────────────────────────────────────────
 @app.route("/api/forward_all_ballots", methods=["POST"])
 def forward_all_ballots():
     return proxy_post(f"{ANONYMISER_URL}/api/forward_all_ballots", timeout=30)
 
-
-# ── Proxy vote ─────────────────────────────────────────────
 @app.route("/api/vote/submit", methods=["POST"])
 def vote_submit():
     return proxy_post(f"{ANONYMISER_URL}/api/submit_vote")
 
 
-# ── Reset global ──────────────────────────────────────────────────────────────
+# ── Reset all ──────────────────────────────────────────────────────────────────
 @app.route("/api/reset_all", methods=["POST"])
 def reset_all():
-    """Reset all services in parallel (not sequentially)"""
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    
     results = {}
-    
+
     def reset_service(name, url):
         try:
             r = requests.post(f"{url}/api/reset", timeout=5)
             return (name, r.json())
         except Exception as ex:
             return (name, {"error": str(ex)})
-    
-    # Run all 4 resets in parallel threads
+
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {
             executor.submit(reset_service, name, url): (name, url)
             for name, url in [
                 ("commissioner", COMMISSIONER_URL),
                 ("administrator", ADMINISTRATOR_URL),
-                ("anonymiser", ANONYMISER_URL),
-                ("counter", COUNTER_URL),
+                ("anonymiser",   ANONYMISER_URL),
+                ("counter",      COUNTER_URL),
             ]
         }
         for future in as_completed(futures):
             name, result = future.result()
             results[name] = result
-    
+
     return jsonify({"ok": True, "results": results})
+
+
+# ── React frontend (catch-all — must be LAST) ──────────────────────────────────
+@app.route("/assets/<path:filename>")
+def react_assets(filename):
+    return send_from_directory(os.path.join(REACT_BUILD, "assets"), filename)
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def react_app(path):
+    # Let Flask handle all registered /api/* and /health routes normally
+    if path.startswith("api/") or path == "health":
+        abort(404)
+    index = os.path.join(REACT_BUILD, "index.html")
+    if os.path.exists(index):
+        return send_from_directory(REACT_BUILD, "index.html")
+    return "Frontend not built. Run: cd frontend && npm run build", 503
 
 
 if __name__ == "__main__":
