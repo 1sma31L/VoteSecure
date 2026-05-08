@@ -221,7 +221,13 @@ def close_voting():
 @app.route("/api/validate_N1", methods=["POST"])
 def validate_N1():
     N1 = request.json.get("N1", "").replace(" ", "").upper()
-    valid = N1 in STATE["valid_N1"] and N1 not in STATE["used_N1"]
+    log(f"N1 parsed = '{N1}'")
+    log(f"VALID_N1 SET = {list(STATE['valid_N1'])}")
+    valid = (
+        N1 != ""
+        and N1 in STATE["valid_N1"]
+        and N1 not in STATE["used_N1"]
+    )
     log(f"validate_N1({N1[:4]}...) -> {'OK' if valid else 'FAIL'}")
     return jsonify({"valid": valid})
 
@@ -272,4 +278,4 @@ def reset():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=5001, debug=True, threaded=True)
