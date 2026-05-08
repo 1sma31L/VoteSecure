@@ -83,23 +83,32 @@ export default function Voter() {
   }
 
   const handleVerifyN1 = async () => {
-    const N1 = n1Value.replace(/\s/g, '').toUpperCase()
-    if (N1.length !== 12) {
-      setAlert({ type: 'error', text: 'Le code N1 doit faire 12 caractères' })
+  const N1 = n1Value.replace(/\s/g, '').toUpperCase()
+  if (N1.length !== 12) {
+    setAlert({ type: 'error', text: 'Le code N1 doit faire 12 caractères' })
+    return
+  }
+  setAlert(null)
+  setBusy(true)
+  setBusyLabel('Vérification…')
+
+  try {
+    const result = await validateN1.mutateAsync({ N1 })
+
+    if (!result.valid) {
+      setAlert({ type: 'error', text: 'N1 Code not valid or already used' })
       return
     }
-    setAlert(null)
 
-    try {
-      // Optional N1 check
-      try { await validateN1.mutateAsync({ N1 }) } catch {}
-
-      setVerifiedN1(N1)
-      setStep(2)
-    } catch (e) {
-      setAlert({ type: 'error', text: e.message })
-    }
+    setVerifiedN1(N1)
+    setStep(2)
+  } catch (e) {
+    setAlert({ type: 'error', text: `Verification error ${e.message}` })
+  } finally {
+    setBusy(false)
+    setBusyLabel('')
   }
+}
 
   const handleSubmitVote = async () => {
     const N2 = n2Value.replace(/\s/g, '').toUpperCase()

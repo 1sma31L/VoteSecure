@@ -1232,7 +1232,6 @@ async function loadVoterSession() {
     alertMsg('voter-load-alert', `Erreur : ${e.message}`, 'error');
   }
 }
-
 async function verifyN1() {
   const N1 = document.getElementById('vote-n1').value.replace(/\s/g, '').toUpperCase();
   if (N1.length !== 12) {
@@ -1249,14 +1248,16 @@ async function verifyN1() {
       return;
     }
 
-    try {
-      await fetchJSON('/api/commissioner/validate_N1_check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ N1 }),
-      });
-    } catch {
-      // Endpoint facultatif
+    // Actually check the response this time
+    const check = await fetchJSON('/api/commissioner/validate_N1_check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ N1 }),
+    });
+
+    if (!check.valid) {
+      alertMsg('v-alert-1', 'Code N1 invalide ou déjà utilisé.', 'error');
+      return;  // ← stop here
     }
 
     S.verifiedN1 = N1;
