@@ -146,3 +146,37 @@ def encode_vote(vote: int, N2: str, rsa_modulus: int = None) -> int:
     ballot_str = f"{vote}|{N2.upper()}"
     return encode_message(ballot_str, rsa_modulus=rsa_modulus)
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  6. Reversible Vote Packing  
+#     Format: 2 bytes (vote index, big-endian) || 12 bytes (N2 ASCII)
+#     Total: 14 bytes → integer, always reversible
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def pack_vote(vote: int, N2: str) -> int:
+    """Pack vote index + N2 into a single integer for RSA encryption."""
+    if not isinstance(vote, int) or vote < 0:
+        raise ValueError(f"vote must be a non-negative int, got {vote!r}.")
+    N2 = N2.upper().strip()
+    if not re.fullmatch(r"[A-Z0-9]{12}", N2):
+        raise ValueError(f"N2 must be exactly 12 alphanumeric chars, got {N2!r}.")
+
+    vote_bytes = vote.to_bytes(2, "big")          # 2 bytes
+    n2_bytes   = N2.encode("ascii")               # 12 bytes
+    combined   = vote_bytes + n2_bytes            # 14 bytes total
+    return int.from_bytes(combined, "big")
+
+
+def unpack_vote(packed: int) -> tuple[int, str]:
+    """Reverse pack_vote — returns (vote_index, N2_string)."""
+    try:
+        combined   = packed.to_bytes(14, "big")
+        vote_index = int.from_bytes(combined[:2], "big")
+        N2         = combined[2:].decode("ascii")
+    except Exception as ex:
+        raise ValueError(f"unpack_vote failed: {ex}")
+
+    if not re.fullmatch(r"[A-Z0-9]{12}", N2):
+        raise ValueError(f"Unpacked N2 is not valid: {N2!r}.")
+
+    return vote_index, N2

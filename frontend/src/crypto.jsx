@@ -91,3 +91,23 @@ export function formatCode(value) {
   }
   return out
 }
+
+export function encryptVote(choiceIndex, N2, counter_e, counter_N) {
+  const n2Clean = N2.toUpperCase().replace(/\s/g, '')
+  
+  // pack: 2 bytes (vote index) + 12 bytes (N2 ASCII) = 14 bytes
+  const combined = new Uint8Array(14)
+  combined[0] = (choiceIndex >> 8) & 0xff
+  combined[1] =  choiceIndex       & 0xff
+  for (let i = 0; i < 12; i++) {
+    combined[2 + i] = n2Clean.charCodeAt(i)
+  }
+
+  // convert to BigInt and RSA encrypt: c = m^e mod N
+  const m = BigInt(
+    '0x' + Array.from(combined)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+  )
+  return modPow(m, counter_e, counter_N)
+}

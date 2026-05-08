@@ -12,7 +12,7 @@ from datetime import datetime
 
 from crypto.rsa_core import generate_rsa_keypair
 from crypto.rsa_ops import rsa_decrypt, rsa_verify
-from crypto.encoding import tth
+from crypto.encoding import tth, unpack_vote 
 
 app = Flask(__name__)
 CORS(
@@ -113,21 +113,20 @@ def receive_ballot():
     try:
         encrypted_ballot = int(data.get("encrypted_ballot"))
         signature        = int(data.get("signature"))
-        m_int            = int(data.get("m_int"))
+        # m_int no longer stored — counter recomputes it from decrypted data
     except (TypeError, ValueError):
         return jsonify({"error": "Données invalides"}), 400
 
     STATE["ballot_box"].append({
         "encrypted_ballot": encrypted_ballot,
-        "signature": signature,
-        "m_int": m_int,
-        "timestamp": datetime.now().isoformat(),
+        "signature":        signature,
+        "timestamp":        datetime.now().isoformat(),
     })
     log(f"Bulletin #{len(STATE['ballot_box'])} reçu")
     return jsonify({"ok": True, "ballot_count": len(STATE["ballot_box"])})
 
-
 # ── Counting ──────────────────────────────────────────────────────────────
+
 @app.route("/api/count_votes", methods=["POST"])
 def count_votes():
     if STATE["phase"] not in ("ready", "counting"):
@@ -149,45 +148,64 @@ def count_votes():
     log(f"Début du dépouillement — {len(STATE['ballot_box'])} bulletins")
 
     for i, ballot in enumerate(STATE["ballot_box"]):
-        enc = ballot["encrypted_ballot"]
-        sig = ballot["signature"]
-        m_int = ballot["m_int"]
-        num = i + 1
+        enc   = ballot["encrypted_ballot"]
+        sig   = ballot["signature"]
+        num   = i + 1
 
+        # ── Step 1: decrypt ballot → recover packed(choice | N2) ──────────────
         try:
-            decoded = rsa_decrypt(enc, STATE["d"], STATE["N"])
+            packed = rsa_decrypt(enc, STATE["d"], STATE["N"])
         except Exception as ex:
-            log(f"Bulletin #{num} rejete - dechiffrement : {ex}")
+            log(f"Bulletin #{num} rejeté — déchiffrement : {ex}")
             invalid_count += 1
-            ballot_details.append({"num": num, "status": "FAIL Dechiffrement echoue"})
+            ballot_details.append({"num": num, "status": "FAIL déchiffrement"})
             continue
 
-  
-        sig_ok = rsa_verify(m_int, sig, e_A, N_A)
-        if not sig_ok:
-            log(f"Bulletin #{num} rejete - signature admin invalide")
+        # ── Step 2: unpack → extract vote_index and N2 ────────────────────────
+        try:
+            vote_index, N2 = unpack_vote(packed)
+        except ValueError as ex:
+            log(f"Bulletin #{num} rejeté — décodage : {ex}")
             invalid_count += 1
-            ballot_details.append({"num": num, "status": "FAIL Signature invalide"})
+            ballot_details.append({"num": num, "status": "FAIL décodage vote|N2"})
             continue
 
-
-        vote_index = decoded - 1
-
-        if candidates and (not isinstance(vote_index, int) or vote_index < 0 or vote_index >= len(candidates)):
-            log(f"Bulletin #{num} rejete - vote_index={vote_index} hors plage")
+        # ── Step 3: recompute m_int from (vote_index, N2) and verify signature
+        #    This is the critical check — we recompute m_int ourselves so a 
+        #    cheater cannot forge it. sig^e mod N_A must equal our recomputed m_int
+        from crypto.encoding import encode_vote
+        recomputed_m_int = encode_vote(vote_index, N2, rsa_modulus=N_A)
+        if not rsa_verify(recomputed_m_int, sig, e_A, N_A):
+            log(f"Bulletin #{num} rejeté — signature admin invalide")
             invalid_count += 1
-            ballot_details.append({"num": num, "status": f"FAIL Vote hors plage ({vote_index})"})
+            ballot_details.append({"num": num, "status": "FAIL signature invalide"})
             continue
 
-        candidate = candidates[vote_index] if candidates else str(vote_index)
+        # ── Step 4: hash N2 and verify it was registered with the commissioner ─
+        computed_tth = tth(N2)
+        if not verify_tth_at_commissioner(computed_tth):
+            log(f"Bulletin #{num} rejeté — tth(N2) non reconnu")
+            invalid_count += 1
+            ballot_details.append({"num": num, "status": "FAIL N2 non enregistré"})
+            continue
+
+        # ── Step 5: validate vote index range ─────────────────────────────────
+        if not candidates or vote_index < 0 or vote_index >= len(candidates):
+            log(f"Bulletin #{num} rejeté — vote_index={vote_index} hors plage")
+            invalid_count += 1
+            ballot_details.append({"num": num, "status": f"FAIL index hors plage ({vote_index})"})
+            continue
+
+        # ── All checks passed ─────────────────────────────────────────────────
+        candidate = candidates[vote_index]
         results[candidate] = results.get(candidate, 0) + 1
         valid_count += 1
-        log(f"Bulletin #{num} valide -> {candidate}")
+        log(f"Bulletin #{num} valide → {candidate}")
         ballot_details.append({"num": num, "status": f"✓ Valide → {candidate}", "vote": candidate})
 
     STATE["results"] = results
     STATE["phase"] = "done"
-    log(f"Depouillement termine - {valid_count} valides / {invalid_count} invalides")
+    log(f"Dépouillement terminé — {valid_count} valides / {invalid_count} invalides")
 
     return jsonify({
         "ok": True,
@@ -197,7 +215,6 @@ def count_votes():
         "total": len(STATE["ballot_box"]),
         "ballot_details": ballot_details,
     })
-
 
 # ── state ───────────────────────────────────────────────────────────────
 @app.route("/api/state")

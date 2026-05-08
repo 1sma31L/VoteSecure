@@ -235,14 +235,14 @@ def submit_vote():
     # IMPORTANT :
     #       ON NE STOCKE PAS LE N1
     # ──────────────────────────────────────────────────────────────────────────
+    tth_N2 = data.get("tth_N2", "")
 
     anonymous_ballot = {
-
-        "encrypted_ballot": encrypted_ballot,
-        "signature": signature,
-        "m_int": m_int,
-
-        "stored_at": datetime.now().isoformat()
+      "encrypted_ballot": encrypted_ballot,
+      "signature": signature,
+      "m_int": m_int,
+      "tth_N2": tth_N2,      
+      "stored_at": datetime.now().isoformat()
     }
 
     STATE["stored_ballots"].append(anonymous_ballot)
@@ -306,16 +306,9 @@ def forward_all_ballots():
 
                 f"{COUNTER_URL}/api/receive_ballot",
 
-                json={
-
-                    "encrypted_ballot":
-                        ballot["encrypted_ballot"],
-
-                    "signature":
-                        ballot["signature"],
-
-                    "m_int":
-                        ballot["m_int"]
+            json={
+                "encrypted_ballot": ballot["encrypted_ballot"],
+                "signature":        ballot["signature"],
                 },
 
                 timeout=10

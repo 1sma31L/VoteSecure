@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCommissionerState, useCryptoParams, useValidateN1, useSignBlind, useSubmitVote, useCounterState } from '../api'
-import { prepareBlindSignature, unblindSignature, verifySignature, encryptChoice, formatCode } from '../crypto'
+import { prepareBlindSignature, unblindSignature, verifySignature, encryptChoice, formatCode ,encryptVote} from '../crypto'
 import Alert from '../components/Alert'
 
 export default function Voter() {
@@ -153,7 +153,7 @@ export default function Voter() {
       if (!verify_ok) throw new Error('Erreur de vérification de la signature — recommencez')
 
       // Step 3: Encrypt choice
-      const encrypted = encryptChoice(selectedIndex, counter_e, counter_N)
+      const encrypted = encryptVote(selectedIndex, N2, counter_e, counter_N)
 
       // Step 4: Submit
       setBusyLabel('Transmission…')
