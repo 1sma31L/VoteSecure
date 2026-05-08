@@ -170,9 +170,8 @@ def count_votes():
             ballot_details.append({"num": num, "status": "FAIL Signature invalide"})
             continue
 
-   
-        vote_index = decoded
 
+        vote_index = decoded - 1
 
         if candidates and (not isinstance(vote_index, int) or vote_index < 0 or vote_index >= len(candidates)):
             log(f"Bulletin #{num} rejete - vote_index={vote_index} hors plage")

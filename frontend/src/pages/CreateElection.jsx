@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useSetupCommissioner, useRegisterVoter, useInitKeys, useResetAll, useCryptoParams } from '../api'
+import { useSetupCommissioner, useRegisterVoter, useInitKeys, useResetAll, useCryptoParams, useBulkRegisterVoters } from '../api'
 import { useElectionStore } from '../store'
 import Alert from '../components/Alert'
 
@@ -8,6 +8,7 @@ export default function CreateElection() {
   const navigate = useNavigate()
   const setupComm = useSetupCommissioner()
   const registerVoter = useRegisterVoter()
+  const bulkRegisterVoters = useBulkRegisterVoters()
   const initKeys = useInitKeys()
   const resetAll = useResetAll()
   const { cards, setSession } = useElectionStore()
@@ -23,6 +24,31 @@ export default function CreateElection() {
   const [error, setError] = useState(null)
   const [step, setStep] = useState('') // current step label
   const [busy, setBusy] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setError(null)
+    try {
+      // Check file type
+      const fileName = file.name.toLowerCase()
+      if (!fileName.endsWith('.csv') && !fileName.endsWith('.txt')) {
+        setError('Veuillez sélectionner un fichier CSV ou TXT')
+        return
+      }
+
+      const content = await file.text()
+      setVoters(content)
+      setError(null)
+    } catch (err) {
+      setError(`Erreur lecture fichier: ${err.message}`)
+    }
+
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const handleCreate = async () => {
     const opts = options.split('\n').map((s) => s.trim()).filter(Boolean)
@@ -54,25 +80,49 @@ export default function CreateElection() {
 
       // Step 2: Generate keys
       setStep('Génération des clés RSA…')
-      const [d2, d3] = await Promise.all([
-        initKeys.mutateAsync(),
-      ])
-      // initKeys already does both admin + counter
+      await initKeys.mutateAsync()
 
-      // Step 3: Register voters
+      // Step 3: Register voters (bulk if file was large, else one-by-one)
       setStep('Inscription des électeurs…')
       const cards = []
-      for (const { name, email } of voterList) {
-        const cd = await registerVoter.mutateAsync({ name, email })
-        if (cd.ok) {
-          cards.push({
-            name,
-            email,
-            N1_fmt: cd.N1_formatted,
-            N2_fmt: cd.N2_formatted,
-            tth_N2: cd.tth_N2,
-            email_sent: cd.email_sent,
-          })
+      
+      // Use bulk registration endpoint
+      if (voterList.length > 1) {
+        // Create a virtual file from voters text
+        const fileContent = voters
+        const blob = new Blob([fileContent], { type: 'text/plain' })
+        const file = new File([blob], 'voters.txt', { type: 'text/plain' })
+        
+        const result = await bulkRegisterVoters.mutateAsync(file)
+        if (result.ok) {
+          for (const voter of result.voters) {
+            cards.push({
+              name: voter.name,
+              email: voter.email,
+              N1_fmt: voter.N1_formatted,
+              N2_fmt: voter.N2_formatted,
+              tth_N2: voter.tth_N2,
+              email_sent: voter.email_sent,
+            })
+          }
+          if (result.errors.length > 0) {
+            console.warn('Erreurs lors de l\'inscription:', result.errors)
+          }
+        }
+      } else {
+        // Single voter - use individual registration
+        for (const { name, email } of voterList) {
+          const cd = await registerVoter.mutateAsync({ name, email })
+          if (cd.ok) {
+            cards.push({
+              name,
+              email,
+              N1_fmt: cd.N1_formatted,
+              N2_fmt: cd.N2_formatted,
+              tth_N2: cd.tth_N2,
+              email_sent: cd.email_sent,
+            })
+          }
         }
       }
 
@@ -129,6 +179,35 @@ export default function CreateElection() {
             Électeurs{' '}
             <span className="normal-case tracking-normal font-normal text-slate-500">(nom, email — un par ligne)</span>
           </label>
+          
+          <div className="flex gap-3 mb-3">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={busy}
+              className="flex-1 inline-flex items-center justify-center gap-2 bg-surface-3 text-brand-400 font-mono text-xs font-bold px-4 py-2.5 rounded-lg border border-surface-5 hover:border-brand-500 hover:text-brand-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              📁 Importer CSV/TXT
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.txt"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            {voters.trim() && (
+              <button
+                type="button"
+                onClick={() => setVoters('')}
+                disabled={busy}
+                className="inline-flex items-center justify-center gap-1 bg-surface-3 text-slate-400 font-mono text-xs font-bold px-4 py-2.5 rounded-lg border border-surface-5 hover:border-red-500 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                ✕ Effacer
+              </button>
+            )}
+          </div>
+
           <textarea
             value={voters}
             onChange={(e) => setVoters(e.target.value)}
@@ -136,6 +215,7 @@ export default function CreateElection() {
             rows={4}
             className="w-full bg-surface-3 border border-surface-5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 outline-none transition-all resize-y min-h-[100px] leading-relaxed"
           />
+          <p className="text-xs text-slate-500 mt-2">📋 Format: <code className="bg-surface-3 px-2 py-1 rounded">Nom, email@example.com</code> (un par ligne)</p>
         </div>
 
         {error && <Alert type="error" className="mb-4">{error}</Alert>}

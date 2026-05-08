@@ -199,6 +199,105 @@ def register_voter():
     })
 
 
+@app.route("/api/bulk_register_voters", methods=["POST"])
+def bulk_register_voters():
+    if STATE["phase"] != "registration":
+        return jsonify({"error": "not in inscription phase"}), 400
+
+    # Get file from request
+    if "file" not in request.files:
+        return jsonify({"error": "no file given"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "umpty file"}), 400
+
+    try:
+        content = file.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return jsonify({"error": f"reading file error: {str(e)}"}), 400
+
+    # Parse file (CSV or text format)
+    lines = content.strip().split("\n")
+    voters_to_register = []
+    errors = []
+
+    for idx, line in enumerate(lines, 1):
+        line = line.strip()
+        if not line:
+            continue
+
+        # Support both CSV and text formats
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 2:
+            errors.append(f"Ligne {idx}: format invalide (attendu: nom, email)")
+            continue
+
+        name = parts[0]
+        email = parts[1]
+
+        if not name:
+            errors.append(f"Ligne {idx}:missing name")
+            continue
+
+        if not email or "@" not in email:
+            errors.append(f"Ligne {idx}: invalid email ({email})")
+            continue
+
+        voters_to_register.append({"name": name, "email": email})
+
+    if not voters_to_register:
+        return jsonify({"error": "no valid voter found on the file"}), 400
+
+    # Register all voters
+    registered = []
+    for voter in voters_to_register:
+        try:
+            voter_id = secrets.token_hex(8)
+            N1 = generate_code(12)
+            N2 = generate_code(12)
+            tth_n2 = tth(N2)
+
+            STATE["valid_N1"].add(N1)
+            STATE["tth_N2_set"].add(tth_n2)
+            STATE["voters"][voter_id] = {
+                "name": voter["name"], "email": voter["email"],
+                "N1": N1, "N2": N2, "tth_N2": tth_n2, "voted": False
+            }
+
+            n1_fmt = format_code(N1)
+            n2_fmt = format_code(N2)
+
+            # Send credentials by email
+            email_sent = False
+            if voter["email"]:
+                email_sent = send_voter_credentials(
+                    voter["email"], voter["name"], n1_fmt, n2_fmt, STATE["election_title"]
+                )
+                log(f"Electeur '{voter['name']}' <{voter['email']}> — email {'envoye' if email_sent else 'ECHEC'}")
+            else:
+                log(f"Electeur '{voter['name']}' inscrit sans email (N1={N1[:4]}...)")
+
+            registered.append({
+                "name": voter["name"],
+                "email": voter["email"],
+                "N1_formatted": n1_fmt,
+                "N2_formatted": n2_fmt,
+                "tth_N2": tth_n2,
+                "email_sent": email_sent,
+            })
+        except Exception as e:
+            errors.append(f"Erreur inscription {voter['name']}: {str(e)}")
+
+    return jsonify({
+        "ok": True,
+        "registered_count": len(registered),
+        "total_count": len(voters_to_register),
+        "voters": registered,
+        "errors": errors,
+    })
+
+
 @app.route("/api/open_voting", methods=["POST"])
 def open_voting():
     if STATE["phase"] != "registration":

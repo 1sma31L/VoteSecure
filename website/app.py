@@ -146,6 +146,27 @@ def commissioner_validate_n1():
     return proxy_post(f"{COMMISSIONER_URL}/api/validate_N1")
 
 
+@app.route("/api/commissioner/bulk_register_voters", methods=["POST"])
+def commissioner_bulk_register():
+    try:
+        # Forward the file directly to the commissioner service
+        files = request.files
+        if 'file' not in files:
+            return jsonify({"error": "No file provided"}), 400
+        
+        file = files['file']
+        response = requests.post(
+            f"{COMMISSIONER_URL}/api/bulk_register_voters",
+            files={'file': (file.filename, file.stream, file.content_type)},
+            timeout=120
+        )
+        return jsonify(response.json()), response.status_code
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request timeout"}), 504
+    except Exception as ex:
+        return jsonify({"error": str(ex)}), 503
+
+
 # ── Admin────────────────────────────────────────────────────
 @app.route("/api/administrator/state")
 def admin_state():

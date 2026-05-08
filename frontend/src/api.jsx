@@ -90,6 +90,23 @@ export function useRegisterVoter() {
   })
 }
 
+export function useBulkRegisterVoters() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (file) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(API + '/commissioner/bulk_register_voters', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`)
+      return data
+    },
+  })
+}
+
 export function useOpenVoting() {
   const qc = useQueryClient()
   return useMutation({
