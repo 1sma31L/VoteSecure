@@ -193,18 +193,33 @@ def vote_submit():
 # ── Reset global ──────────────────────────────────────────────────────────────
 @app.route("/api/reset_all", methods=["POST"])
 def reset_all():
+    """Reset all services in parallel (not sequentially)"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
     results = {}
-    for name, url in [
-        ("commissioner", COMMISSIONER_URL),
-        ("administrator", ADMINISTRATOR_URL),
-        ("anonymiser", ANONYMISER_URL),
-        ("counter", COUNTER_URL),
-    ]:
+    
+    def reset_service(name, url):
         try:
             r = requests.post(f"{url}/api/reset", timeout=5)
-            results[name] = r.json()
+            return (name, r.json())
         except Exception as ex:
-            results[name] = {"error": str(ex)}
+            return (name, {"error": str(ex)})
+    
+    # Run all 4 resets in parallel threads
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            executor.submit(reset_service, name, url): (name, url)
+            for name, url in [
+                ("commissioner", COMMISSIONER_URL),
+                ("administrator", ADMINISTRATOR_URL),
+                ("anonymiser", ANONYMISER_URL),
+                ("counter", COUNTER_URL),
+            ]
+        }
+        for future in as_completed(futures):
+            name, result = future.result()
+            results[name] = result
+    
     return jsonify({"ok": True, "results": results})
 
 

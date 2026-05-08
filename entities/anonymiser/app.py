@@ -70,6 +70,9 @@ STATE = {
 
     # Logs
     "audit": [],
+    
+    # Cache admin public key (performance optimization)
+    "cached_admin_key": None,
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -148,28 +151,29 @@ def submit_vote():
     STATE["seen_signatures"].add(signature)
 
     # ──────────────────────────────────────────────────────────────────────────
-    # 2. Récupérer la clé publique admin
+    # 2. Récupérer la clé publique admin (avec cache)
     # ──────────────────────────────────────────────────────────────────────────
 
-    try:
-
-        r = requests.get(
-            f"{ADMINISTRATOR_URL}/api/public_key",
-            timeout=5
-        )
-
-        admin_data = r.json()
-
-        e_A = int(admin_data["e"])
-        N_A = int(admin_data["N"])
-
-    except Exception as ex:
-
-        log(f"Impossible de récupérer la clé admin : {ex}")
-
-        return jsonify({
-            "error": "Administrateur indisponible"
-        }), 503
+    if STATE["cached_admin_key"] is None:
+        try:
+            r = requests.get(
+                f"{ADMINISTRATOR_URL}/api/public_key",
+                timeout=5
+            )
+            admin_data = r.json()
+            STATE["cached_admin_key"] = {
+                "e": int(admin_data["e"]),
+                "N": int(admin_data["N"])
+            }
+            log("Admin public key cached")
+        except Exception as ex:
+            log(f"Impossible de récupérer la clé admin : {ex}")
+            return jsonify({
+                "error": "Administrateur indisponible"
+            }), 503
+    
+    e_A = STATE["cached_admin_key"]["e"]
+    N_A = STATE["cached_admin_key"]["N"]
 
     # ──────────────────────────────────────────────────────────────────────────
     # 3. Vérification signature RSA
@@ -420,6 +424,8 @@ def reset():
         "receipts": {},
 
         "audit": [],
+        
+        "cached_admin_key": None,
     })
 
     log("Reset complet")
