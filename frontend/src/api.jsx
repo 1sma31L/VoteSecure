@@ -21,7 +21,7 @@ export function useServices() {
   return useQuery({
     queryKey: ['services'],
     queryFn: () => apiFetch('/services'),
-    refetchInterval: 10000,
+    refetchInterval: 60000, // Poll every 60s instead of 10s
   })
 }
 
@@ -36,7 +36,7 @@ export function useCommissionerState() {
   return useQuery({
     queryKey: ['commissionerState'],
     queryFn: () => apiFetch('/commissioner/state'),
-    refetchInterval: 5000,
+    refetchInterval: 30000, // Poll every 30s instead of 5s
   })
 }
 
@@ -51,7 +51,7 @@ export function useCounterState() {
   return useQuery({
     queryKey: ['counterState'],
     queryFn: () => apiFetch('/counter/state'),
-    refetchInterval: 5000,
+    refetchInterval: 30000, 
   })
 }
 
