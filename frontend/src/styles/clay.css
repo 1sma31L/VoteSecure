@@ -58,6 +58,14 @@ body {
   text-decoration: none;
   flex-shrink: 0;
 }
+.clay-hero-logo {
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.clay-hero-logo:hover {
+  transform: translateY(-2px) scale(1.02);
+  filter: drop-shadow(0 6px 12px rgba(30,58,110,0.25));
+}
 
 .clay-logo-img {
   height: 2.4rem;

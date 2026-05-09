@@ -116,9 +116,11 @@ export default function Home() {
         </div>
 
         {/* headline */}
-        <h1 className="clay-hero-title">
-          Vote<span className="clay-accent">Secure</span>
-        </h1>
+        <img
+  src="/assets/buttons/mainlogo.png"
+  alt="VoteSecure"
+  className="clay-hero-logo"
+/>
         <p className="clay-hero-sub">Scrutin électronique cryptographique distribué</p>
         <p className="clay-hero-body">
           Un système de vote où <strong className="clay-strong">aucune entité seule</strong> ne peut ni identifier un électeur ni connaître son vote.
