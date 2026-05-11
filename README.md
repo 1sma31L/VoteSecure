@@ -67,7 +67,7 @@ cd VoteSecure
 ### 2. Install dependencies
 
 ```bash
-cd frontend && npm run install build && npm run build
+cd frontend && npm run install && npm run build
 cd ..
 pip install -r requirements.txt
 ```
