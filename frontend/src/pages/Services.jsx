@@ -2,18 +2,27 @@ import { useState } from 'react'
 import { useServices, useInitKeys, useResetAll } from '../api'
 import Alert from '../components/Alert'
 
-const SVC_COLORS = {
-  commissioner: 'neon-blue',
-  administrator: 'neon-cyan',
-  anonymiser: 'neon-orange',
-  counter: 'neon-green',
+function Btn({ slug, alt, onClick, disabled, className = '' }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled}
+      className={`clay-img-btn ${className}`}>
+      <img src={`/assets/buttons/btn-${slug}.png`} alt={alt}
+        className="block h-auto pointer-events-none select-none" draggable={false} />
+    </button>
+  )
 }
 
-const colorMap = {
-  'neon-blue': { bg: 'bg-neon-blue/10', border: 'border-neon-blue/20', text: 'text-neon-blue', dot: 'bg-neon-blue' },
-  'neon-cyan': { bg: 'bg-neon-cyan/10', border: 'border-neon-cyan/20', text: 'text-neon-cyan', dot: 'bg-neon-cyan' },
-  'neon-green': { bg: 'bg-neon-green/10', border: 'border-neon-green/20', text: 'text-neon-green', dot: 'bg-neon-green' },
-  'neon-orange': { bg: 'bg-neon-orange/10', border: 'border-neon-orange/20', text: 'text-neon-orange', dot: 'bg-neon-orange' },
+const SVC_META = {
+  commissioner: { colorKey: 'blue',  icon: '👤' },
+  administrator: { colorKey: 'green', icon: '🔐' },
+  anonymiser:    { colorKey: 'amber', icon: '🎭' },
+  counter:       { colorKey: 'green', icon: '📊' },
+}
+
+const dotColors = {
+  blue:  'bg-[#1E3A6E]',
+  green: 'bg-[#3D7A4E]',
+  amber: 'bg-[#B8860B]',
 }
 
 export default function Services() {
@@ -50,29 +59,33 @@ export default function Services() {
   const svcEntries = services ? Object.entries(services) : []
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <div className="mb-8">
-        <p className="text-[0.7rem] font-bold text-brand-400 uppercase tracking-[0.2em] mb-2 font-mono">Configuration</p>
-        <h2 className="font-display text-2xl font-black text-white tracking-tight">Services</h2>
-        <p className="text-slate-400 mt-2">Initialisez les clés RSA avant d'ouvrir un scrutin.</p>
+    <div className="clay-page-inner">
+      <div className="clay-page-header">
+        <p className="clay-label">Configuration</p>
+        <h2 className="clay-page-title">Services</h2>
+        <p className="clay-page-sub">Initialisez les clés RSA avant d'ouvrir un scrutin.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      {/* Service status grid */}
+      <div className="clay-services-status-grid mb-8">
         {isLoading ? (
-          <div className="col-span-2 text-center py-8 text-slate-500">Chargement…</div>
+          <div className="col-span-2 text-center py-8 clay-muted">Chargement…</div>
         ) : (
           svcEntries.map(([key, svc]) => {
+            const meta = SVC_META[key] || { colorKey: 'blue', icon: '⚙' }
             const online = svc.status === 'ok'
-            const c = colorMap[SVC_COLORS[key]] || colorMap['neon-blue']
             return (
-              <div key={key} className={`bg-surface-2 border ${c.border} rounded-2xl p-5`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <span className={`w-3 h-3 rounded-full ${online ? `${c.dot} animate-pulse` : 'bg-slate-600'}`} />
-                  <span className={`font-bold ${online ? c.text : 'text-slate-500'} capitalize`}>{key}</span>
+              <div key={key} className="clay-svc-status-card">
+                <div className="clay-svc-icon">{meta.icon}</div>
+                <div className="clay-svc-info">
+                  <span className="clay-svc-name capitalize">{key}</span>
+                  <span className="clay-svc-url">{svc.url}</span>
                 </div>
-                <div className="text-xs text-slate-500 font-mono">{svc.url}</div>
-                <div className={`text-xs font-semibold mt-1 ${online ? c.text : 'text-slate-600'}`}>
-                  {online ? 'En ligne' : 'Hors ligne'}
+                <div className="clay-svc-status-row">
+                  <span className={`clay-dot ${online ? `${dotColors[meta.colorKey]} animate-pulse` : 'bg-[#BFB9AF]'}`} />
+                  <span className={`clay-svc-status-label ${online ? 'clay-svc-online' : 'clay-svc-offline'}`}>
+                    {online ? 'En ligne' : 'Hors ligne'}
+                  </span>
                 </div>
               </div>
             )
@@ -80,38 +93,18 @@ export default function Services() {
         )}
       </div>
 
-      <div className="bg-surface-2 border border-surface-5 rounded-2xl p-6">
-        <p className="text-[0.7rem] font-bold text-brand-400 uppercase tracking-widest mb-2 font-mono">Initialisation rapide</p>
-        <p className="text-sm text-slate-400 mb-5">
+      {/* Init panel */}
+      <div className="clay-card">
+        <p className="clay-label mb-2">Initialisation rapide</p>
+        <p className="clay-page-sub mb-5">
           Lance la génération des clés RSA sur l'administrateur et le décompteur. À faire avant d'ouvrir un scrutin.
         </p>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={handleInit}
-            disabled={initKeys.isPending}
-            className="inline-flex items-center gap-2 bg-brand-600 text-white font-bold px-5 py-2.5 rounded-xl hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-lg shadow-brand-600/20"
-          >
-            {initKeys.isPending && <Spinner />}
-            ⚙ Initialiser les clés RSA
-          </button>
-          <button
-            onClick={handleReset}
-            disabled={resetAll.isPending}
-            className="inline-flex items-center gap-2 bg-neon-pink/20 border border-neon-pink/30 text-neon-pink font-bold px-5 py-2.5 rounded-xl hover:bg-neon-pink/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            ↺ Réinitialiser tout
-          </button>
+        <div className="clay-btn-row">
+          <Btn slug="init-keys" alt="Initialiser les clés RSA" onClick={handleInit} disabled={initKeys.isPending} />
+          <Btn slug="reset"     alt="Réinitialiser tout"       onClick={handleReset} disabled={resetAll.isPending} />
         </div>
-        {msg && (
-          <div className="mt-4">
-            <Alert type={msg.type}>{msg.text}</Alert>
-          </div>
-        )}
+        {msg && <Alert type={msg.type} className="mt-4">{msg.text}</Alert>}
       </div>
     </div>
   )
-}
-
-function Spinner() {
-  return <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
 }
